@@ -47,6 +47,7 @@ const RULES = [
   [/^(?:cursor|mouse)(?: mode)?(?: on)?$|^(?:start|enable|turn on|use) (?:the )?(?:cursor|mouse)(?: mode)?$/, () => ({ action: 'cursor', do: 'on' })],
   [/^(?:cursor|mouse)(?: mode)? off$|^(?:stop|disable|turn off|exit|leave|end) (?:the )?(?:cursor|mouse)(?: mode)?$/, () => ({ action: 'cursor', do: 'off' })],
   [/^calibrate(?: (?:the )?(?:cursor|mouse|camera|hand))?$/, () => ({ action: 'cursor', do: 'calibrate' })],
+  [/^(?:teach|train)(?: jarvis| you| me)? (?:a |an )?(?:new )?gesture$|^(?:new|custom) gesture$|^(?:open )?(?:the )?gesture trainer$/, () => ({ action: 'trainer', do: 'open' })],
   [/^dwell(?: click(?:ing)?)? (on|off)$|^(?:turn )?(on|off) dwell(?: click(?:ing)?)?$/, (m) => ({ action: 'cursor', do: `dwell_${m[1] || m[2]}` })],
   [/^(?:go to sleep|sleep|good ?night|goodbye|thats all|that will be all)$/, () => ({ action: 'sleep' })],
   [/^(?:back|go back|go up|up|up a level)$/, () => ({ action: 'back' })],

@@ -34,12 +34,15 @@ export function profileForFront(front, profiles) {
   return profiles.find((p) => p.match?.bundleIds?.includes(front.bundleId)) ?? null;
 }
 
-/** Problems in a profile file, as readable strings (empty = fine). */
+/**
+ * Problems in a profile file, as readable strings (empty = fine).
+ * @param gestureNames built-in names plus any taught gesture names it may map
+ */
 export function checkProfile(p, { gestureNames, isValidCombo = () => true }) {
   const errs = [];
   if (!p?.app || typeof p.app !== 'string') errs.push('missing "app"');
   for (const [g, cmd] of Object.entries(p?.gestures ?? {})) {
-    if (!gestureNames.has(g) && !g.startsWith('custom_')) errs.push(`unknown gesture "${g}"`);
+    if (!gestureNames.has(g)) errs.push(`unknown gesture "${g}"`);
     if (!cmd?.action) errs.push(`${g}: missing "action"`);
     if (cmd?.action === 'key' && !isValidCombo(cmd.combo)) errs.push(`${g}: bad combo "${cmd.combo}"`);
   }

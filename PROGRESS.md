@@ -119,3 +119,51 @@ Known issues and untested:
 - Tab polling is once a second, so switching tabs takes up to 1 s to change profile.
 - Keys go to whichever app is in front. If Jarvis's tab is in front, no keys are sent (the panel profile applies).
 - Zoom's shortcuts work only in its meeting window. YouTube's need the player focused.
+
+## Task 4: Custom gesture trainer
+
+Done:
+- `web/src/knn.js`: features and classifier.
+  - Features: 20 landmarks relative to the wrist, scaled by hand size (wrist to middle knuckle), with x corrected for the frame's aspect. Depth counts half. That gives 60 numbers that ignore position and size but keep shape and orientation.
+  - Classifier: k-nearest-neighbours (k=5). Each gesture gets its own "unknown" threshold: 2.5x its 90th-percentile spread between nearest siblings, clamped to 0.35..1.6 hand sizes. So untaught shapes are rejected even when only one gesture is taught.
+  - Leave-one-out evaluation reports accuracy and mix-ups.
+- Engine: `setCustomModel()`.
+  - A taught pose must be recognised by at least 60% of neighbours for 350 ms, then fires `gesture:<name>` (plus `gesture` with `custom: true`).
+  - Fires once per hold, only awake, outside the wake grace, with the normal cooldown. Not during a pinch.
+  - `tapLandmarks()` feeds the trainer. The debug panel has a `custom` line.
+- `web/src/trainer.js`: the "Teach Jarvis a gesture" screen (Shift+T, "teach Jarvis a gesture" / "new gesture", or `/?train`).
+  - Name validation; the action is a key combo, a Spotify command, open app/site, cursor on/off, sleep, or nothing.
+  - Recording: 3 s countdown, a 0.6 s settle, then 20 samples 100 ms apart.
+  - The report shows the leave-one-out score, mix-ups with other taught gestures, and a warning when the shape reads as a built-in pose.
+  - A live prediction box, then Save. A saved gesture can be edited (action only) or deleted (with confirm).
+- Server: `GET|POST /gestures`, stored in `server/gestures.json` (one sample per line). `server/gestures.js` validates strictly:
+  - names, not built-in, no duplicates;
+  - 5-60 samples of 60 finite numbers;
+  - at most 30 gestures;
+  - actions limited to key / spotify / open / cursor / sleep / close / back, with combos checked by the key parser;
+  - a 2 MB body limit for this route only.
+- `api.js`: taught gestures run the active profile's mapping for that name if there is one, else their saved action. No gesture runs anything while the trainer is open. "Close" closes the trainer first.
+- Tests:
+  - `web/test/knn.test.mjs` (16): feature invariance; classifying noisy, moved and resized samples; rejecting untaught poses (with one or two taught); leave-one-out flagging duplicates; rounding for storage; engine firing (once per hold, not asleep, not on a short flicker, built-ins unaffected); landmark tap; server/page constants agree; trainer form round-trip.
+  - Server: 3 more route tests (save and read back cleaned, a full 30x60 set fits, 10 kinds of bad file rejected with reasons).
+  - Voice: 4 more phrases.
+
+Decisions:
+- KNN over a tiny MLP: it trains instantly, works from 20 samples, needs no tuning, gives a natural "none of these" via distance, and its leave-one-out check is a free quality report. An MLP would need negative examples to say "none".
+- Static hand shapes only (one frame each, held 350 ms). Moving gestures (a circle, a wave) would need sequence models and much more data.
+- The trainer saves through the helper (`server/gestures.json`, not git-ignored, so you can commit your gestures if you like), not browser storage.
+- A taught gesture's action is global. A profile can override it per app by naming the gesture in its JSON.
+- Taught names may not reuse built-in names, and the trainer warns (but does not block) when a taught shape looks like a built-in pose, since both would fire.
+
+Bug found and fixed while testing:
+- Recording started the instant the countdown ended, so the first samples caught the hand still in its previous shape. In the browser test, a pointing finger was then recognised as "peace" and fired a second time. A 0.6 s settle before sampling fixed it; one hold now fires exactly once.
+
+Verified here (headless Chrome, synthetic hands, dry-run helper):
+- Shift+T opens the trainer; a built-in name is refused; recording a peace sign scores 100%; Live shows `peace` for it and `–` for a palm.
+- Save writes the file and the list updates; nothing fires while the trainer is open.
+- After closing: awake, one held peace sign fires once and presses shift+cmd+t (dry log); asleep, nothing.
+
+Known issues and untested:
+- Never tried on real hands. Real landmark noise may need `KNN.REJECT_FACTOR` or `MIN_THRESHOLD` tuned. Both are named constants in `web/src/knn.js`.
+- Left and right hands differ in features. Teach with the hand you will use.
+- The `custom_` hack in profile checking was removed; profiles may name taught gestures, but the profile test only checks the shipped files against built-in names.

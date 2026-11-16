@@ -84,6 +84,10 @@ In the folder browser, "open <name>" opens the item with that name in the curren
 | What a gesture does in an app | `web/profiles/<app>.json` (one file per app) |
 | Names that "open ..." understands | `server/targets.json` |
 | Today list | `server/today.json` (re-read every wake) |
+| Cursor feel (click, drag, scroll, dwell) | `C` at the top of `web/src/cursor.js` |
+| Custom gestures | Shift+T or "teach Jarvis a gesture"; saved in `server/gestures.json` |
+
+New since the first checklist: cursor control, per-app profiles, a perf panel and custom gestures. Their camera tests are in `TESTING.md`, and what was built and decided is in `PROGRESS.md`.
 
 ## Mac test checklist
 

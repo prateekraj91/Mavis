@@ -76,3 +76,25 @@ The profile chip sits at the top of the HUD: gold means it came from the front a
   An "H" appears.
 
 To change what a gesture does in an app, edit `web/profiles/<app>.json` and reload the page. Combos are like `cmd+shift+t`; write `+` as `plus`.
+
+## Task 4: Custom gesture trainer
+
+- [ ] **Open.** Say "teach Jarvis a gesture", press Shift+T, or open http://localhost:5173/?train (after clicking Start).
+- [ ] **Name check.** Type `palm`: it refuses (built-in). Type `Peace Sign`: it refuses (lowercase, digits, `_` only).
+- [ ] **Record.** Name `peace`, choose "Press keys…", type `cmd+shift+t`, then click Record.
+  - After the 3-2-1 and a short "Hold it…", hold a peace sign. Move it slightly closer, further and turned while the bar fills (about 2 s).
+  - The report should say "Recognised 100%" or close to it.
+- [ ] **Live box.** While the trainer is open:
+  - holding the peace sign shows `peace` with a percentage;
+  - an open palm, a fist or a pointing finger shows `–`.
+  - If a different shape also shows `peace`, record again with more varied angles.
+- [ ] **Save.** Click Save: it appears under Saved gestures with `shift+cmd+t · 20 samples`. `server/gestures.json` now exists.
+- [ ] **Use it.** Close the trainer (Esc), then:
+  - In Chrome, close a tab, wake Jarvis and hold a peace sign about 0.4 s: the tab reopens, once per hold.
+  - Asleep, the same pose does nothing.
+  - While the trainer is open, it does nothing either.
+- [ ] **Built-in look-alike.** Try teaching an open palm under another name: the report should warn that it looks like the built-in palm.
+- [ ] **Confusion check.** Teach two gestures that differ by one finger (e.g. `two` = peace, `three` = index + middle + ring). Both should score ≥ 90% and the Live box should tell them apart. If it warns about mix-ups, the shapes are too similar for the camera.
+- [ ] **Edit and delete.** Click a saved gesture's name, change its action to "Spotify: next track", and Save without recording: the samples are kept and the new action applies. Delete asks first, then removes it.
+- [ ] **Profile override.** Optional: add `"peace": {"action":"key","combo":"k","label":"Play"}` to `web/profiles/youtube.json`. In a YouTube tab the peace sign then presses K instead of its saved action.
+- [ ] **Debug.** On `/?debug`, the `custom` line shows the live prediction and its distance; use it to judge how close a near-miss was.

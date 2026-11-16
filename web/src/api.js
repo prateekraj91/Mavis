@@ -12,6 +12,11 @@
 //   {action:'files', do:'open'|'back'|'next_page'|'prev_page'}     {action:'back'}
 //   {action:'cursor', do:'on'|'off'|'calibrate'|'dwell_on'|'dwell_off'}
 //   {action:'key', combo:'cmd+shift+t', label?}    press keys in the front app (helper /key)
+//   {action:'trainer', do:'open'}                   "teach Jarvis a gesture" screen (trainer.js)
+//
+// Taught gestures fire as gesture:<name>. The active profile may map them like any
+// gesture; otherwise the action saved with the gesture runs (gestures:updated).
+// While the trainer is open, no gesture runs anything.
 //
 // Cursor mode (cursor.js): while it is on, gestures do not run profile commands, so a
 // pinch-click cannot also change the volume. Thumbs up leaves cursor mode.
@@ -51,7 +56,7 @@ async function call(path, body) {
   return r.json();
 }
 
-export function startApi({ engine, cursor = null, bus = window }) {
+export function startApi({ engine, cursor = null, trainer = null, bus = window }) {
   const on = (type, fn) => bus.addEventListener(type, (e) => fn(e.detail || {}));
   const send = (type, detail = {}) => bus.dispatchEvent(new CustomEvent(type, { detail }));
   const say = (text) => send('hud:say', { text });
@@ -60,6 +65,8 @@ export function startApi({ engine, cursor = null, bus = window }) {
   let frontProfile = null; // front app's profile
   let active = panel; // the one gestures use
   let tabErrorSaid = false;
+  let customActions = {}; // taught gesture name -> command (or null)
+  let trainerOpen = false;
   function refresh() {
     const next = frontProfile ?? panel;
     if (next === active) return;
@@ -229,7 +236,8 @@ export function startApi({ engine, cursor = null, bus = window }) {
     if (cmd.action === 'open') return open(cmd);
     if (cmd.action === 'files') return files(cmd);
     if (cmd.action === 'back') return filesOpen() ? files({ do: 'back' }) : closePanel();
-    if (cmd.action === 'close') return closePanel();
+    if (cmd.action === 'close') return trainer?.isOpen() ? trainer.close() : closePanel();
+    if (cmd.action === 'trainer') return trainer ? trainer.open() : say('The gesture trainer is off in this mode');
     if (cmd.action === 'sleep') return engine.sleep(source);
     if (cmd.action === 'cursor') return cursorCmd(cmd);
     if (cmd.action === 'key') return key(cmd);
@@ -274,12 +282,15 @@ export function startApi({ engine, cursor = null, bus = window }) {
 
   on('state:awake', wakeUp);
   on('state:asleep', () => { clearInterval(timer); timer = null; });
+  on('gestures:updated', (d) => { customActions = Object.fromEntries((d.gestures || []).map((g) => [g.name, g.action])); });
+  on('trainer:open', (d) => { trainerOpen = !!d.on; });
   on('gesture', (d) => {
+    if (trainerOpen) return;
     if (cursor?.isOn()) {
       if (d.name === CURSOR_EXIT_GESTURE) cursor.setMode(false);
       return;
     }
-    const cmd = active?.gestures?.[d.name];
+    const cmd = active?.gestures?.[d.name] ?? customActions[d.name];
     if (cmd) execute(cmd, 'gesture');
   });
   on('hud:action', (d) => execute(d, 'click'));

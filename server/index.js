@@ -9,6 +9,7 @@
 //   GET|POST /cursor/calibration {x0,y0,x1,y1}   camera area that maps to the display
 //   POST /key      {combo}                  press a key combo in the front app, e.g. "cmd+shift+t"
 //   GET  /front                             front app {app, bundleId, host} (host: browser tab)
+//   GET|POST /gestures {gestures:[...]}     taught gestures + their actions (gestures.json)
 //   WS   /ws                                 low-latency channel: {t:'cursor', op, ...} in,
 //                                            {t:'input', ...status} and {t:'front', ...} out
 // POST /open also takes {path} to open a file found through /fs.
@@ -37,6 +38,7 @@ const { listFolder, findHomeFolder, openablePath, fsError } = await import('./fi
 const input = await import('./input.js');
 const front = await import('./front.js');
 const { parseCombo } = await import('./keys.js');
+const taught = await import('./gestures.js');
 
 const PORT = Number(process.env.JARVIS_PORT) || 7777; // tests use another port
 // calibration.json (and later gestures.json) live here. Tests point it at a temp folder.
@@ -47,6 +49,7 @@ const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173
 const APP_NAME_RE = /^[\p{L}\p{N} .+&'-]{1,60}$/u;
 const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/;
 const CALIBRATION_FILE = 'calibration.json';
+const GESTURES_FILE = 'gestures.json';
 // Until you calibrate: the middle 70% of the camera frame maps to the whole display.
 const DEFAULT_CALIBRATION = { x0: 0.15, y0: 0.15, x1: 0.85, y1: 0.85, default: true };
 const MIN_CALIBRATION_SPAN = 0.1; // of the camera frame
@@ -76,6 +79,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+// Taught gestures carry their samples (~25 kB each); everything else stays small.
+app.use('/gestures', express.json({ limit: taught.LIMITS.MAX_BODY }));
 app.use(express.json({ limit: '10kb' }));
 
 export function resolveTarget(raw) {
@@ -187,6 +192,23 @@ app.post('/key', (req, res) => {
 });
 
 app.get('/front', (_req, res) => res.json(front.current()));
+
+// ── taught gestures ──
+app.get('/gestures', async (_req, res) => {
+  try {
+    res.json(taught.cleanGestureFile(JSON.parse(await readFile(dataFile(GESTURES_FILE), 'utf8'))));
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.warn(`${GESTURES_FILE} unreadable, starting empty: ${err.message}`);
+    res.json({ version: 1, gestures: [] });
+  }
+});
+
+app.post('/gestures', async (req, res) => {
+  let file;
+  try { file = taught.cleanGestureFile(req.body); } catch (err) { return res.status(400).json({ ok: false, error: err.message }); }
+  await writeFile(dataFile(GESTURES_FILE), taught.formatGestureFile(file));
+  res.json({ ok: true, count: file.gestures.length });
+});
 
 // Dry-run only: pretend an app came to the front (tests have no real app switching).
 app.post('/front/simulate', async (req, res) => {

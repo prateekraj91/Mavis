@@ -27,7 +27,8 @@
 //                                        capture -> events dispatched for that frame
 //   gesture:<name> {name, ...}           plus a generic `gesture` event
 //     swipe_right, swipe_left, palm, thumbs_up, pinch_up, pinch_down,
-//     pinch (quick pinch-and-release, for "click"), fist (short fist, for "back")
+//     pinch (quick pinch-and-release, for "click"), fist (short fist, for "back"),
+//     and any custom gesture taught in the trainer: {name, custom: true, confidence}
 //
 // Coordinates are mirrored (selfie view): moving your hand to YOUR right
 // increases x. y grows downward.
@@ -35,6 +36,7 @@
 // ───────────────────────── tunables ─────────────────────────
 // Mutable on purpose: tweak live from the console via `jarvis.T.SWIPE_MIN_DX = 0.2`.
 import { PerfMeter, PointFilter } from './filters.js';
+import { features } from './knn.js';
 
 export const T = {
   // Model + camera
@@ -101,6 +103,11 @@ export const T = {
   GESTURE_COOLDOWN_MS: 800, // per gesture; both swipe directions share one
   WAKE_GRACE_MS: 600, // ignore gestures right after waking
   IDLE_SLEEP_MS: 30000,
+
+  // Custom gestures (trainer.js). A taught pose must be recognised this long to fire,
+  // and fires once per hold, like palm.
+  CUSTOM_HOLD_MS: 350,
+  CUSTOM_MIN_CONFIDENCE: 0.6, // share of the K nearest samples that agree
 
   // Debug + perf
   PERF_REPORT_MS: 500,
@@ -212,6 +219,9 @@ export class GestureEngine extends EventTarget {
     this.perf = new PerfMeter({ windowMs: T.PERF_WINDOW_MS });
     this.delegate = null;
     this.driver = null; // 'video-frame' | 'timer'
+    this.customModel = null; // KnnClassifier from knn.js, set by trainer.js
+    this.custom = { name: null, since: 0, fired: false, last: null };
+    this._landmarkTaps = new Set();
   }
 
   _resetTracking() {
@@ -224,6 +234,7 @@ export class GestureEngine extends EventTarget {
     this.hold = null;
     this.swipeHist = [];
     this.pinch = { active: false, start: 0, anchorY: 0, stepped: false, origin: null, last: null };
+    if (this.custom) this.custom = { name: null, since: 0, fired: false, last: null };
     this.tipFilter?.reset();
     this.moveFilter?.reset();
   }
@@ -324,6 +335,8 @@ export class GestureEngine extends EventTarget {
     this._updatePose(this.pinch.active ? 'pinch' : classifyPose(m), m, t);
     this._updateSwipe(m, t);
     this._updateHold(m, t);
+    this._updateCustom(lm, aspect, t);
+    for (const fn of this._landmarkTaps) fn(lm, aspect, t);
 
     // Pointers come from the raw landmarks through a One Euro filter: the EMA above
     // lags a frame or two, which is fine for poses but felt as drag on a cursor.
@@ -371,6 +384,31 @@ export class GestureEngine extends EventTarget {
       }
     }
     return this.smoothed;
+  }
+
+  /** Classifier for taught gestures, or null to turn them off. */
+  setCustomModel(model) {
+    this.customModel = model;
+    this.custom = { name: null, since: 0, fired: false, last: null };
+  }
+
+  /** fn(landmarks, aspect, t) every frame with a hand (smoothed, mirrored). Returns an unsubscribe. */
+  tapLandmarks(fn) {
+    this._landmarkTaps.add(fn);
+    return () => this._landmarkTaps.delete(fn);
+  }
+
+  _updateCustom(lm, aspect, t) {
+    const c = this.custom;
+    if (!this.customModel?.samples?.length) return;
+    // A pinch is a pinch; holds of the built-in poses still run alongside.
+    const r = this.pinch.active ? { name: null, confidence: 0 } : this.customModel.predict(features(lm, aspect));
+    c.last = r;
+    const name = r.name && r.confidence >= T.CUSTOM_MIN_CONFIDENCE ? r.name : null;
+    if (name !== c.name) { c.name = name; c.since = t; c.fired = false; return; }
+    if (!name || c.fired || t - c.since < T.CUSTOM_HOLD_MS) return;
+    // Only mark it used if it really fired (asleep or in cooldown, it can fire later in the same hold).
+    if (this._fire(name, { custom: true, confidence: r.confidence }, t, { key: `custom:${name}` })) c.fired = true;
   }
 
   _handLost(t) {
@@ -700,6 +738,7 @@ export class GestureEngine extends EventTarget {
         `palm xy    ${f(m.center.x)} ${f(m.center.y)}   size ${f(m.handSize, 3)}`,
         `swipe dx   ${f(d.swipeDx, 3)} / ${T.SWIPE_MIN_DX} in ${T.SWIPE_WINDOW_MS}ms   cooldown ${f(cd('swipe'), 0)}ms`,
         `hold       ${target && h && !h.fired ? `${target.action} ${f(t - h.start, 0)} / ${target.ms}ms` : h?.fired ? 'fired (release to re-arm)' : '-'}`,
+        `custom     ${this.customModel ? (this.custom.last?.name ? `${this.custom.last.name} ${f(this.custom.last.confidence)} d ${f(this.custom.last.distance)}` : `- (closest ${this.custom.last?.closest ?? '-'} d ${f(this.custom.last?.distance)})`) : 'none taught'}`,
       );
     }
     lines.push(

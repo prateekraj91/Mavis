@@ -13,6 +13,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const ORIGIN = 'http://localhost:5173';
 const dataDir = mkdtempSync(join(tmpdir(), 'jarvis-test-'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const samples = (n) => Array.from({ length: n }, (_, i) => Array.from({ length: 60 }, (_, j) => Number(Math.sin(i * 7 + j).toFixed(4))));
 
 const server = spawn(process.execPath, [fileURLToPath(new URL('../index.js', import.meta.url))], {
   env: { ...process.env, JARVIS_PORT: String(PORT), JARVIS_DATA_DIR: dataDir, JARVIS_INPUT: 'dry' },
@@ -138,6 +139,42 @@ const tests = {
     assert.deepEqual([f.app, f.bundleId, f.host], ['Google Chrome', 'com.google.Chrome', 'www.youtube.com']);
     assert.equal((await req('GET', '/front')).body.host, 'www.youtube.com');
     ws.close();
+  },
+  async 'gestures: empty until saved, then read back cleaned'() {
+    assert.deepEqual((await req('GET', '/gestures')).body, { version: 1, gestures: [] });
+    const g = { name: 'peace', action: { action: 'key', combo: 'Cmd+Shift+T', label: 'Reopen tab', junk: 1 }, samples: samples(20) };
+    const r = await req('POST', '/gestures', { gestures: [g, { name: 'rock', action: null, samples: samples(8) }] });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const back = (await req('GET', '/gestures')).body.gestures;
+    assert.deepEqual(back.map((x) => x.name), ['peace', 'rock']);
+    assert.deepEqual(back[0].action, { action: 'key', combo: 'shift+cmd+t', label: 'Reopen tab' });
+    assert.equal(back[1].action, null);
+    assert.equal(back[0].samples.length, 20);
+    assert.deepEqual(back[0].samples[3], g.samples[3]);
+  },
+  async 'gestures: a large set fits (30 x 60 samples)'() {
+    const gestures = Array.from({ length: 30 }, (_, i) => ({ name: `g${i}`, action: null, samples: samples(60) }));
+    assert.equal((await req('POST', '/gestures', { gestures })).status, 200);
+  },
+  async 'gestures: bad files are rejected with a reason'() {
+    const ok = { name: 'peace', action: null, samples: samples(10) };
+    const bad = [
+      [{ gestures: [{ ...ok, name: 'Peace Sign' }] }, /names are/],
+      [{ gestures: [{ ...ok, name: 'palm' }] }, /built-in/],
+      [{ gestures: [ok, ok] }, /twice/],
+      [{ gestures: [{ ...ok, samples: samples(2) }] }, /samples/],
+      [{ gestures: [{ ...ok, samples: [...samples(9), [1, 2, 3]] }] }, /60 numbers/],
+      [{ gestures: [{ ...ok, samples: [...samples(9), Array(60).fill(1e9)] }] }, /60 numbers/],
+      [{ gestures: [{ ...ok, action: { action: 'key', combo: 'cmd+hyper' } }] }, /Unknown key/],
+      [{ gestures: [{ ...ok, action: { action: 'shell', cmd: 'rm' } }] }, /Unknown action/],
+      [{ gestures: [{ ...ok, action: { action: 'open', target: '"; do shell script "x' } }] }, /Open needs/],
+      [{ nope: true }, /Expected/],
+    ];
+    for (const [body, re] of bad) {
+      const r = await req('POST', '/gestures', body);
+      assert.equal(r.status, 400, JSON.stringify(body).slice(0, 80));
+      assert.match(r.body.error, re);
+    }
   },
   async 'websocket: bad messages are answered with an error, not a crash'() {
     const { ws, first } = await wsOpen();

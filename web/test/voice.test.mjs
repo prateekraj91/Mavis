@@ -25,7 +25,9 @@ const cases = [
   ['start the cursor', { action: 'cursor', do: 'on' }], ['cursor off', { action: 'cursor', do: 'off' }],
   ['stop mouse mode', { action: 'cursor', do: 'off' }], ['calibrate', { action: 'cursor', do: 'calibrate' }],
   ['calibrate the cursor', { action: 'cursor', do: 'calibrate' }], ['dwell click on', { action: 'cursor', do: 'dwell_on' }],
-  ['turn off dwell', { action: 'cursor', do: 'dwell_off' }], ['start chrome', { action: 'open', target: 'chrome' }],
+  ['turn off dwell', { action: 'cursor', do: 'dwell_off' }],
+  ['teach Jarvis a gesture', { action: 'trainer', do: 'open' }], ['train a new gesture', { action: 'trainer', do: 'open' }],
+  ['new gesture', { action: 'trainer', do: 'open' }], ['open the gesture trainer', { action: 'trainer', do: 'open' }], ['start chrome', { action: 'open', target: 'chrome' }],
   ['I should open a bank account and next week we pause', null],
   ['what is the next step', null], ['', null], ['i could not sleep', null],
 ];
