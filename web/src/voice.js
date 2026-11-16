@@ -43,6 +43,11 @@ export function stripWake(text) {
 
 // Whole-utterance matches only, so song lyrics and conversation rarely trigger anything.
 const RULES = [
+  // Cursor control (before "start/open ..." so "start the cursor" is not an app).
+  [/^(?:cursor|mouse)(?: mode)?(?: on)?$|^(?:start|enable|turn on|use) (?:the )?(?:cursor|mouse)(?: mode)?$/, () => ({ action: 'cursor', do: 'on' })],
+  [/^(?:cursor|mouse)(?: mode)? off$|^(?:stop|disable|turn off|exit|leave|end) (?:the )?(?:cursor|mouse)(?: mode)?$/, () => ({ action: 'cursor', do: 'off' })],
+  [/^calibrate(?: (?:the )?(?:cursor|mouse|camera|hand))?$/, () => ({ action: 'cursor', do: 'calibrate' })],
+  [/^dwell(?: click(?:ing)?)? (on|off)$|^(?:turn )?(on|off) dwell(?: click(?:ing)?)?$/, (m) => ({ action: 'cursor', do: `dwell_${m[1] || m[2]}` })],
   [/^(?:go to sleep|sleep|good ?night|goodbye|thats all|that will be all)$/, () => ({ action: 'sleep' })],
   [/^(?:back|go back|go up|up|up a level)$/, () => ({ action: 'back' })],
   [/^close(?: it| (?:the )?(?:panel|spotify))?$/, () => ({ action: 'close' })],

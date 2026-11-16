@@ -21,6 +21,11 @@ const cases = [
   ['sleep', { action: 'sleep' }], ['go to sleep', { action: 'sleep' }],
   ['close', { action: 'close' }],
   ['go back', { action: 'back' }], ['back', { action: 'back' }], ['open Downloads', { action: 'open', target: 'downloads' }],
+  ['cursor mode', { action: 'cursor', do: 'on' }], ['mouse on', { action: 'cursor', do: 'on' }],
+  ['start the cursor', { action: 'cursor', do: 'on' }], ['cursor off', { action: 'cursor', do: 'off' }],
+  ['stop mouse mode', { action: 'cursor', do: 'off' }], ['calibrate', { action: 'cursor', do: 'calibrate' }],
+  ['calibrate the cursor', { action: 'cursor', do: 'calibrate' }], ['dwell click on', { action: 'cursor', do: 'dwell_on' }],
+  ['turn off dwell', { action: 'cursor', do: 'dwell_off' }], ['start chrome', { action: 'open', target: 'chrome' }],
   ['I should open a bank account and next week we pause', null],
   ['what is the next step', null], ['', null], ['i could not sleep', null],
 ];

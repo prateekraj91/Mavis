@@ -184,7 +184,6 @@ A should work. B, C and D are unknown until tested. If one fails:
 ## Not built yet
 
 - Chrome, YouTube and VS Code gesture profiles (they need a key-press endpoint in the helper).
-- Finger-controlled system cursor. The engine already emits a `hand` event every frame (`x`, `y` of the index fingertip, `pinch`, which fingers are extended) for a helper to drive it.
 - A start script and launch at login.
 
 ## Layout

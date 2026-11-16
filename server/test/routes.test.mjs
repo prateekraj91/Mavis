@@ -1,0 +1,137 @@
+// Starts the helper in dry-run mode (nothing reaches macOS) on a spare port with a
+// temp data folder, then hits its routes and WebSocket. Run: npm test
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import WebSocket from 'ws';
+
+const PORT = 7790 + Math.floor(Math.random() * 100);
+const BASE = `http://127.0.0.1:${PORT}`;
+const ORIGIN = 'http://localhost:5173';
+const dataDir = mkdtempSync(join(tmpdir(), 'jarvis-test-'));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const server = spawn(process.execPath, [fileURLToPath(new URL('../index.js', import.meta.url))], {
+  env: { ...process.env, JARVIS_PORT: String(PORT), JARVIS_DATA_DIR: dataDir, JARVIS_INPUT: 'dry' },
+  stdio: ['ignore', 'pipe', 'inherit'],
+});
+let serverOut = '';
+server.stdout.on('data', (d) => { serverOut += d; });
+
+const req = async (method, path, body, origin = ORIGIN) => {
+  const headers = { Origin: origin };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const r = await fetch(BASE + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  return { status: r.status, body: await r.json().catch(() => null) };
+};
+const dry = async () => (await req('GET', '/cursor/dry')).body.commands;
+const wsOpen = (origin = ORIGIN) => new Promise((resolve, reject) => {
+  const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`, { headers: { Origin: origin } });
+  const first = new Promise((r) => ws.once('message', (m) => r(JSON.parse(m))));
+  ws.once('open', () => resolve({ ws, first }));
+  ws.once('error', reject);
+  ws.once('unexpected-response', (_q, res) => reject(new Error(`HTTP ${res.statusCode}`)));
+});
+
+const tests = {
+  async 'cursor status reports the dry-run screen'() {
+    const r = await req('GET', '/cursor/status');
+    assert.equal(r.status, 200);
+    assert.deepEqual([r.body.ready, r.body.trusted, r.body.dry, r.body.screen.w, r.body.screen.h], [true, true, true, 1440, 900]);
+  },
+  async 'POST /cursor move maps 0..1 to display points'() {
+    const r = await req('POST', '/cursor', { op: 'move', x: 0.5, y: 1 });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.point, [720, 899]);
+    assert.equal((await dry()).at(-1), 'move 720 899');
+  },
+  async 'coordinates are clamped to the display'() {
+    const r = await req('POST', '/cursor', { op: 'move', x: -3, y: 7 });
+    assert.deepEqual(r.body.point, [0, 899]);
+  },
+  async 'click, down/up and scroll'() {
+    await req('POST', '/cursor', { op: 'click', x: 0, y: 0 });
+    await req('POST', '/cursor', { op: 'down', x: 0.1, y: 0.1 });
+    await req('POST', '/cursor', { op: 'up', x: 0.2, y: 0.1 });
+    await req('POST', '/cursor', { op: 'scroll', dx: 0, dy: -40.4 });
+    assert.deepEqual((await dry()).slice(-4), ['click 0 0', 'down 144 90', 'up 288 90', 'scroll 0 -40']);
+  },
+  async 'up without down is ignored'() {
+    const before = (await dry()).length;
+    const r = await req('POST', '/cursor', { op: 'up', x: 0.5, y: 0.5 });
+    assert.equal(r.body.ignored, 'button not down');
+    assert.equal((await dry()).length, before);
+  },
+  async 'scroll is capped per message'() {
+    await req('POST', '/cursor', { op: 'scroll', dx: 99999, dy: -99999 });
+    assert.equal((await dry()).at(-1), 'scroll 2000 -2000');
+  },
+  async 'bad ops and bad numbers are rejected'() {
+    assert.equal((await req('POST', '/cursor', { op: 'rm -rf', x: 0, y: 0 })).status, 400);
+    assert.equal((await req('POST', '/cursor', { op: 'move', x: 'a', y: 0 })).status, 400);
+  },
+  async 'other websites are refused'() {
+    assert.equal((await req('POST', '/cursor', { op: 'move', x: 0.5, y: 0.5 }, 'https://evil.example')).status, 403);
+  },
+  async 'calibration: default until saved, then the saved rectangle'() {
+    assert.equal((await req('GET', '/cursor/calibration')).body.default, true);
+    const c = { x0: 0.2, y0: 0.25, x1: 0.75, y1: 0.8 };
+    assert.equal((await req('POST', '/cursor/calibration', c)).status, 200);
+    assert.deepEqual((await req('GET', '/cursor/calibration')).body, c);
+  },
+  async 'calibration: nonsense is rejected'() {
+    assert.equal((await req('POST', '/cursor/calibration', { x0: 0.5, y0: 0.2, x1: 0.52, y1: 0.8 })).status, 400);
+    assert.equal((await req('POST', '/cursor/calibration', { x0: -1, y0: 0.2, x1: 0.5, y1: 0.8 })).status, 400);
+  },
+  async 'websocket: hello, then cursor commands in order'() {
+    const { ws, first } = await wsOpen();
+    const hello = await first;
+    assert.equal(hello.t, 'input');
+    assert.equal(hello.ready, true);
+    for (let i = 0; i <= 10; i++) ws.send(JSON.stringify({ t: 'cursor', op: 'move', x: i / 10, y: 0.5 }));
+    await sleep(150);
+    const log = await dry();
+    assert.deepEqual(log.slice(-11).map((l) => l.split(' ')[1]), Array.from({ length: 11 }, (_, i) => String(Math.round((i / 10) * 1439))));
+    ws.close();
+  },
+  async 'websocket: closing mid-drag lets go of the button'() {
+    const { ws, first } = await wsOpen();
+    await first;
+    ws.send(JSON.stringify({ t: 'cursor', op: 'down', x: 0.5, y: 0.5 }));
+    await sleep(80);
+    ws.close();
+    await sleep(150);
+    assert.equal((await dry()).at(-1), 'up');
+    assert.equal((await req('GET', '/cursor/status')).body.buttonDown, false);
+  },
+  async 'websocket: other origins are refused'() {
+    await assert.rejects(wsOpen('https://evil.example'), /403/);
+  },
+  async 'websocket: bad messages are answered with an error, not a crash'() {
+    const { ws, first } = await wsOpen();
+    await first;
+    const err = new Promise((r) => ws.once('message', (m) => r(JSON.parse(m))));
+    ws.send('not json');
+    ws.send(JSON.stringify({ t: 'cursor', op: 'explode' }));
+    assert.equal((await err).t, 'cursor:error');
+    ws.close();
+  },
+};
+
+let failed = 0;
+try {
+  for (let i = 0; i < 50; i++) { try { await fetch(`${BASE}/cursor/status`); break; } catch { await sleep(100); } }
+  for (const [name, fn] of Object.entries(tests)) {
+    try { await fn(); console.log(`ok    ${name}`); }
+    catch (err) { failed++; console.log(`FAIL  ${name}\n      ${err.message}`); }
+  }
+} finally {
+  server.kill();
+  rmSync(dataDir, { recursive: true, force: true });
+}
+if (failed) console.log(`\nserver output:\n${serverOut}`);
+console.log(failed ? `\n${failed} failed` : '\nroutes: all passed');
+process.exit(failed ? 1 : 0);

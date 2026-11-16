@@ -18,6 +18,8 @@
 //     system:stats {cpu, mem, battery, charging}     percentages 0..100
 //     today:list {items: [{text, time?, done?}]}
 //     hud:say {text}                           one-line message in the centre
+//     cursor:mode {on, dwell}                  real-cursor mode chip (cursor.js)
+//     cursor:dwell {progress}                  dwell-click charge, shown on the ring
 //
 // Emits
 //   hud:start                                  Start button clicked (bootstrap starts the engine)
@@ -226,6 +228,15 @@ export function initHud({ root = document.getElementById('hud'), bus = window, p
     // Until a dispatcher reports what it did, name the gesture itself.
     if (line.textContent === IDLE_LINE) setLine(pretty(d.name), 1200);
   });
+
+  // ── cursor mode chip ──
+  on('cursor:mode', (d) => {
+    const chip = el('chip-cursor');
+    chip.hidden = !d.on;
+    chip.textContent = d.dwell ? 'Cursor · dwell' : 'Cursor';
+    if (d.on) root.dataset.cursor = 'on'; else delete root.dataset.cursor;
+  });
+  on('cursor:dwell', (d) => setRing(d.progress || 0));
 
   // ── perf panel ──
   const perfEl = el('perf');

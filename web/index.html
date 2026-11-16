@@ -84,6 +84,11 @@
       </div>
     </section>
 
+    <!-- Mode chips: cursor mode, active profile -->
+    <div class="chips">
+      <span class="chip" data-el="chip-cursor" hidden>Cursor</span>
+    </div>
+
     <!-- Voice pill -->
     <div class="pill" data-el="pill"><span class="pill-bars"><i></i><i></i><i></i></span><span data-el="pill-text">Voice off</span></div>
 
@@ -121,6 +126,8 @@
     import { initFiles } from './src/files.js';
     import { startApi } from './src/api.js';
     import { startVoice } from './src/voice.js';
+    import { startCursor } from './src/cursor.js';
+    import { initCalibration } from './src/calibrate.js';
 
     const params = new URLSearchParams(location.search);
     const hud = initHud({ perf: params.has('perf') || params.has('debug') });
@@ -130,7 +137,8 @@
     const engine = (window.jarvis = new GestureEngine());
     const demo = params.has('demo');
     // The dispatcher: gestures, voice and HUD clicks -> helper. Off in demo mode.
-    const api = demo ? null : startApi({ engine });
+    const cursor = demo ? null : startCursor({ engine, calibrate: initCalibration() });
+    const api = demo ? null : startApi({ engine, cursor });
     addEventListener('hud:start', () => {
       if (api) startVoice({ engine, execute: api.execute }); // same click unlocks the microphone
       engine.start({ debug: params.has('debug') }).catch(() => {});

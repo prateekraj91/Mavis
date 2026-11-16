@@ -4,11 +4,18 @@
 //   GET  /state                             system stats + Spotify state for the HUD
 //   GET  /today                             today list from today.json
 //   GET  /fs?path=                          list a folder inside home (name, ~/path or full path)
+//   GET  /cursor/status                     cursor helper: ready, Accessibility permission, screen
+//   POST /cursor   {op, x, y, dx, dy}       move | down | up | click | scroll (x,y display 0..1)
+//   GET|POST /cursor/calibration {x0,y0,x1,y1}   camera area that maps to the display
+//   WS   /ws                                 low-latency channel: {t:'cursor', op, ...} in,
+//                                            {t:'input', ...status} out
 // POST /open also takes {path} to open a file found through /fs.
 import express from 'express';
+import { WebSocketServer } from 'ws';
 import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -25,12 +32,21 @@ try {
 const spotify = await import('./spotify.js');
 const { stats } = await import('./system.js');
 const { listFolder, findHomeFolder, openablePath, fsError } = await import('./files.js');
+const input = await import('./input.js');
 
-const PORT = 7777;
+const PORT = Number(process.env.JARVIS_PORT) || 7777; // tests use another port
+// calibration.json (and later gestures.json) live here. Tests point it at a temp folder.
+const DATA_DIR = process.env.JARVIS_DATA_DIR || here('.');
+const dataFile = (name) => join(DATA_DIR, name);
 const HOST = '127.0.0.1'; // never reachable from the network
 const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
 const APP_NAME_RE = /^[\p{L}\p{N} .+&'-]{1,60}$/u;
 const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/;
+const CALIBRATION_FILE = 'calibration.json';
+// Until you calibrate: the middle 70% of the camera frame maps to the whole display.
+const DEFAULT_CALIBRATION = { x0: 0.15, y0: 0.15, x1: 0.85, y1: 0.85, default: true };
+const MIN_CALIBRATION_SPAN = 0.1; // of the camera frame
+const WS_MAX_BYTES = 4096;
 
 const run = promisify(execFile);
 const targets = JSON.parse(readFileSync(here('targets.json'), 'utf8'));
@@ -120,6 +136,45 @@ app.get('/fs', async (req, res) => {
   }
 });
 
+// ── cursor ──
+app.get('/cursor/status', (_req, res) => res.json(input.status()));
+
+app.post('/cursor', (req, res) => {
+  const r = input.cursor(req.body);
+  res.status(r.ok ? 200 : 400).json(r);
+});
+
+export function validCalibration(c) {
+  const v = ['x0', 'y0', 'x1', 'y1'].map((k) => Number(c?.[k]));
+  if (!v.every((n) => Number.isFinite(n) && n >= 0 && n <= 1)) return null;
+  const [x0, y0, x1, y1] = v;
+  if (x1 - x0 < MIN_CALIBRATION_SPAN || y1 - y0 < MIN_CALIBRATION_SPAN) return null;
+  return { x0, y0, x1, y1 };
+}
+
+app.get('/cursor/calibration', async (_req, res) => {
+  try {
+    const c = validCalibration(JSON.parse(await readFile(dataFile(CALIBRATION_FILE), 'utf8')));
+    res.json(c ?? DEFAULT_CALIBRATION);
+  } catch {
+    res.json(DEFAULT_CALIBRATION);
+  }
+});
+
+app.post('/cursor/calibration', async (req, res) => {
+  const c = validCalibration(req.body);
+  if (!c) return res.status(400).json({ ok: false, error: `Calibration needs x0<x1 and y0<y1 in 0..1, each span at least ${MIN_CALIBRATION_SPAN}` });
+  await writeFile(dataFile(CALIBRATION_FILE), JSON.stringify(c, null, 2) + '\n');
+  res.json({ ok: true, ...c });
+});
+
+// Dry-run only (JARVIS_INPUT=dry): the commands that would have been posted.
+app.get('/cursor/dry', (_req, res) => {
+  const log = input.dryCommands();
+  if (!log) return res.status(404).json({ ok: false, error: 'Only in dry-run mode (JARVIS_INPUT=dry)' });
+  res.json({ ok: true, commands: log });
+});
+
 app.get('/today', async (_req, res) => {
   try {
     const data = JSON.parse(await readFile(here('today.json'), 'utf8')); // re-read so edits show up
@@ -138,7 +193,42 @@ function cleanError(err) {
   return msg.split('\n')[0].slice(0, 200);
 }
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`Jarvis helper on http://localhost:${PORT}`);
   if (!spotify.hasKeys()) console.log('No Spotify keys in server/.env: "play <song>" will only open the search in Spotify.');
+});
+
+// ── WebSocket: cursor moves at camera rate, in order, without a request per frame ──
+const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_BYTES });
+server.on('upgrade', (req, socket, head) => {
+  const { pathname } = new URL(req.url, 'http://localhost');
+  // Same rule as HTTP: only the Jarvis page. Browsers always send Origin on WebSockets.
+  if (pathname !== '/ws' || !ALLOWED_ORIGINS.has(req.headers.origin)) {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    return socket.destroy();
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws));
+});
+
+const broadcast = (msg) => { const s = JSON.stringify(msg); for (const c of wss.clients) if (c.readyState === 1) c.send(s); };
+input.onInputChange(broadcast);
+
+wss.on('connection', (ws) => {
+  ws.send(JSON.stringify({ t: 'input', ...input.status() }));
+  ws.on('message', (data) => {
+    let msg;
+    try { msg = JSON.parse(data); } catch { return; }
+    if (msg?.t === 'cursor') {
+      const r = input.cursor(msg);
+      if (!r.ok) ws.send(JSON.stringify({ t: 'cursor:error', error: r.error }));
+    }
+  });
+  // Page closed or reloaded mid-drag: let go of the button.
+  ws.on('close', () => { if (wss.clients.size === 0) input.releaseButton(); });
+});
+
+input.startInput().then(() => {
+  const s = input.status();
+  if (s.error) console.log(s.error);
+  else if (s.dry) console.log('Cursor helper: dry run (JARVIS_INPUT=dry), nothing is posted to macOS.');
 });

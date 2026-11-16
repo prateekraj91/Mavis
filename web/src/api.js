@@ -10,6 +10,10 @@
 //   {action:'spotify', do:'play', query}
 //   {action:'open', target}        {action:'close'}        {action:'sleep'}
 //   {action:'files', do:'open'|'back'|'next_page'|'prev_page'}     {action:'back'}
+//   {action:'cursor', do:'on'|'off'|'calibrate'|'dwell_on'|'dwell_off'}
+//
+// Cursor mode (cursor.js): while it is on, gestures do not run profile commands, so a
+// pinch-click cannot also change the volume. Thumbs up leaves cursor mode.
 //
 // Folder browser: this file fetches listings (GET /fs) and sends `files:list`;
 // files.js draws them and answers `files:activate` with `files:pick {path, type, name}`.
@@ -24,6 +28,7 @@ const VOLUME_STEP = 6; // per pinch step
 const VOICE_VOLUME_STEP = 12; // "volume up"
 const VOLUME_HOLD_MS = 1500; // ignore polled volume this long after setting it
 const OFFLINE_NOTE_MS = 20000;
+const CURSOR_EXIT_GESTURE = 'thumbs_up'; // the only gesture that acts while cursor mode is on
 
 const LABELS = { next: 'Next track', previous: 'Previous track', pause: 'Paused', resume: 'Playing', like: 'Like toggled' };
 
@@ -40,7 +45,7 @@ async function call(path, body) {
   return r.json();
 }
 
-export function startApi({ engine, bus = window }) {
+export function startApi({ engine, cursor = null, bus = window }) {
   const on = (type, fn) => bus.addEventListener(type, (e) => fn(e.detail || {}));
   const send = (type, detail = {}) => bus.dispatchEvent(new CustomEvent(type, { detail }));
   const say = (text) => send('hud:say', { text });
@@ -209,6 +214,15 @@ export function startApi({ engine, bus = window }) {
     if (cmd.action === 'back') return filesOpen() ? files({ do: 'back' }) : closePanel();
     if (cmd.action === 'close') return closePanel();
     if (cmd.action === 'sleep') return engine.sleep(source);
+    if (cmd.action === 'cursor') return cursorCmd(cmd);
+  }
+
+  function cursorCmd(cmd) {
+    if (!cursor) return say('Cursor control is off in this mode');
+    if (cmd.do === 'on') cursor.setMode(true);
+    else if (cmd.do === 'off') cursor.setMode(false);
+    else if (cmd.do === 'calibrate') cursor.calibrate();
+    else if (cmd.do === 'dwell_on' || cmd.do === 'dwell_off') cursor.setDwell(cmd.do === 'dwell_on');
   }
 
   // ── polling ──
@@ -236,7 +250,14 @@ export function startApi({ engine, bus = window }) {
 
   on('state:awake', wakeUp);
   on('state:asleep', () => { clearInterval(timer); timer = null; });
-  on('gesture', (d) => { const cmd = active?.gestures?.[d.name]; if (cmd) execute(cmd, 'gesture'); });
+  on('gesture', (d) => {
+    if (cursor?.isOn()) {
+      if (d.name === CURSOR_EXIT_GESTURE) cursor.setMode(false);
+      return;
+    }
+    const cmd = active?.gestures?.[d.name];
+    if (cmd) execute(cmd, 'gesture');
+  });
   on('hud:action', (d) => execute(d, 'click'));
   on('files:pick', pick);
   if (engine.state === 'AWAKE') wakeUp();
