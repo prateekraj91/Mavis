@@ -1,0 +1,10 @@
+{
+  "app": "Keynote",
+  "match": {"bundleIds": ["com.apple.iWork.Keynote"]},
+  "gestures": {
+    "swipe_right":  {"action": "key", "combo": "right", "label": "Next slide"},
+    "swipe_left":   {"action": "key", "combo": "left", "label": "Previous slide"},
+    "palm":         {"action": "key", "combo": "alt+cmd+p", "label": "Play slideshow"},
+    "fist":         {"action": "key", "combo": "escape", "label": "Stop slideshow"}
+  }
+}

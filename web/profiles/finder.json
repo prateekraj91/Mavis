@@ -1,0 +1,14 @@
+{
+  "app": "Finder",
+  "match": {"bundleIds": ["com.apple.finder"]},
+  "gestures": {
+    "swipe_right":  {"action": "key", "combo": "cmd+]", "label": "Forward"},
+    "swipe_left":   {"action": "key", "combo": "cmd+[", "label": "Back"},
+    "fist":         {"action": "key", "combo": "cmd+up", "label": "Enclosing folder"},
+    "pinch":        {"action": "key", "combo": "cmd+down", "label": "Open"},
+    "thumbs_up":    {"action": "key", "combo": "space", "label": "Quick Look"},
+    "pinch_up":     {"action": "key", "combo": "up", "label": "Up"},
+    "pinch_down":   {"action": "key", "combo": "down", "label": "Down"},
+    "palm":         {"action": "spotify", "do": "playpause"}
+  }
+}

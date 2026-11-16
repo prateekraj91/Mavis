@@ -88,7 +88,7 @@ const tests = {
   },
   async 'websocket: hello, then cursor commands in order'() {
     const { ws, first } = await wsOpen();
-    const hello = await first;
+    const hello = await first; // then a {t:'front'} message follows
     assert.equal(hello.t, 'input');
     assert.equal(hello.ready, true);
     for (let i = 0; i <= 10; i++) ws.send(JSON.stringify({ t: 'cursor', op: 'move', x: i / 10, y: 0.5 }));
@@ -110,10 +110,39 @@ const tests = {
   async 'websocket: other origins are refused'() {
     await assert.rejects(wsOpen('https://evil.example'), /403/);
   },
+  async 'POST /key presses a combo through the helper'() {
+    const r = await req('POST', '/key', { combo: 'Cmd+Shift+T' });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.combo, 'shift+cmd+t');
+    assert.equal((await dry()).at(-1), `key 17 ${0x100000 | 0x20000}`);
+  },
+  async 'POST /key: arrows carry the hardware Fn/keypad flags'() {
+    await req('POST', '/key', { combo: 'alt+cmd+left' });
+    assert.equal((await dry()).at(-1), `key 123 ${0x80000 | 0x100000 | 0x800000 | 0x200000}`);
+  },
+  async 'POST /key rejects unknown keys, two keys, modifiers only, and other origins'() {
+    for (const combo of ['cmd+hyper', 'a+b', 'cmd+shift', '', 'x'.repeat(60)]) {
+      assert.equal((await req('POST', '/key', { combo })).status, 400, combo);
+    }
+    assert.equal((await req('POST', '/key', { combo: 'cmd+q' }, 'https://evil.example')).status, 403);
+  },
+  async 'front app: simulated switch is pushed over the websocket and readable at /front'() {
+    const { ws, first } = await wsOpen();
+    await first; // input
+    const msgs = [];
+    ws.on('message', (m) => msgs.push(JSON.parse(m)));
+    await sleep(50);
+    await req('POST', '/front/simulate', { bundleId: 'com.google.Chrome', app: 'Google Chrome', host: 'www.youtube.com' });
+    await sleep(100);
+    const f = msgs.filter((m) => m.t === 'front').at(-1);
+    assert.deepEqual([f.app, f.bundleId, f.host], ['Google Chrome', 'com.google.Chrome', 'www.youtube.com']);
+    assert.equal((await req('GET', '/front')).body.host, 'www.youtube.com');
+    ws.close();
+  },
   async 'websocket: bad messages are answered with an error, not a crash'() {
     const { ws, first } = await wsOpen();
     await first;
-    const err = new Promise((r) => ws.once('message', (m) => r(JSON.parse(m))));
+    const err = new Promise((r) => ws.on('message', (m) => { const d = JSON.parse(m); if (d.t !== 'front') r(d); }));
     ws.send('not json');
     ws.send(JSON.stringify({ t: 'cursor', op: 'explode' }));
     assert.equal((await err).t, 'cursor:error');

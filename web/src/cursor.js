@@ -11,8 +11,8 @@
 // While it is on, api.js does not run profile gestures (except thumbs up, which
 // leaves cursor mode), so a pinch-click cannot also change the volume.
 //
-// Events out (on window): cursor:mode {on, dwell}  cursor:status {ready, trusted, ...}
-//                         cursor:dwell {progress}  hud:say {text}
+// Events out (on window): cursor:mode {on, dwell}  cursor:dwell {progress}  hud:say {text}
+// Helper status arrives as helper:input {ready, trusted, ...} through socket.js.
 // Keys: Shift+C cursor mode, Shift+K calibrate, Shift+W dwell on/off.
 
 export const C = {
@@ -29,8 +29,6 @@ export const C = {
   DWELL_MS: 900,
   DWELL_RADIUS: 0.012, // display fraction the cursor may wander during a dwell
   DWELL_REARM_RADIUS: 0.03, // after a dwell click, move this far before the next can start
-  RECONNECT_MS: 2000,
-  HELPER_WS: 'ws://localhost:7777/ws',
   HELPER: 'http://localhost:7777',
   KEY_TOGGLE: 'C',
   KEY_CALIBRATE: 'K',
@@ -229,14 +227,14 @@ export class CursorLogic {
 
 /**
  * @param engine     GestureEngine
+ * @param socket     connectHelper() from socket.js
  * @param calibrate  () => void, opens the calibration screen (calibrate.js)
  */
-export function startCursor({ engine, bus = window, calibrate = () => {} }) {
+export function startCursor({ engine, socket, bus = window, calibrate = () => {} }) {
   const logic = new CursorLogic();
   const send = (type, detail = {}) => bus.dispatchEvent(new CustomEvent(type, { detail }));
   const say = (text) => send('hud:say', { text });
   let on = false;
-  let ws = null;
   let status = null;
   let lastDwell = null;
 
@@ -249,23 +247,8 @@ export function startCursor({ engine, bus = window, calibrate = () => {} }) {
   loadCalibration();
   bus.addEventListener('cursor:calibrated', (e) => logic.setCalibration(e.detail));
 
-  function connect() {
-    try { ws = new WebSocket(C.HELPER_WS); } catch { return; }
-    ws.onmessage = (e) => {
-      let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
-      if (msg.t === 'input') {
-        status = msg;
-        send('cursor:status', msg);
-        if (on) explainStatus();
-      }
-      // frontmost-app and other helper pushes are re-dispatched for api.js
-      if (msg.t && msg.t !== 'input') send(`helper:${msg.t}`, msg);
-    };
-    ws.onclose = () => { ws = null; status = null; setTimeout(connect, C.RECONNECT_MS); };
-    ws.onerror = () => {};
-  }
-  connect();
+  bus.addEventListener('helper:input', (e) => { status = e.detail; if (on) explainStatus(); });
+  bus.addEventListener('helper:close', () => { status = null; });
 
   function explainStatus() {
     if (!status) return say('Helper is not running. Start it in server/ with npm start');
@@ -277,8 +260,7 @@ export function startCursor({ engine, bus = window, calibrate = () => {} }) {
   const push = (cmds) => {
     if (!cmds.length) return;
     engine.noteActivity(); // moving the cursor counts as activity, so Jarvis does not idle to sleep
-    if (ws?.readyState !== 1) return;
-    for (const c of cmds) ws.send(JSON.stringify({ t: 'cursor', ...c }));
+    for (const c of cmds) if (!socket.send({ t: 'cursor', ...c })) break;
   };
 
   bus.addEventListener('hand', (e) => {

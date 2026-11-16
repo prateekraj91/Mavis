@@ -41,3 +41,38 @@ First time only: `cd server && npm install` compiles `server/native/jarvis-input
 - [ ] **Leave.** Thumbs up, "cursor off", or Shift+C turns it off. Hold a fist for 2 s: Jarvis sleeps and cursor mode turns off.
 - [ ] **Safety.** Start a drag, then drop your hand out of view: the button is released (the window stops following). Do the same and close the Jarvis tab: the button is released too.
 - [ ] **Idle.** Move the cursor for over 30 s without any other gesture: Jarvis stays awake.
+
+## Task 3: Per-app profiles
+
+The profile chip sits at the top of the HUD: gold means it came from the front app, grey means the Jarvis panel profile (Spotify or Files). To watch it while another app is in front, put Chrome with the Jarvis tab beside that app.
+
+- [ ] **Permissions.** The first time a browser is in front, macOS asks to let Terminal control Google Chrome (to read the active tab's address). Allow it. If you said no, the HUD explains where to turn it on (Privacy & Security > Automation).
+  - Keys also need the Accessibility permission from Task 2.
+- [ ] **Switching.** Click into each app; the chip follows within about 1 s:
+  - Finder → Finder
+  - VS Code → VS Code
+  - Spotify → Spotify
+  - Chrome on any site → Chrome
+  - a YouTube tab → YouTube
+  - a meet.google.com tab → Google Meet
+  - Zoom → Zoom
+  - Keynote or PowerPoint → that app
+  - Notes (no profile) → Spotify, grey
+  - The Jarvis tab itself → Spotify, grey
+- [ ] **Chrome.** Swipe right / left: next / previous tab. Fist: back. Pinch and move: scrolls by lines. Thumbs up: reload. Palm: Spotify play/pause.
+- [ ] **YouTube.** Palm: play/pause (K). Swipe right / left: ±10 s. Thumbs up: next video. Fist: full screen. Quick pinch: mute. Pinch and move: volume.
+  - Click the video once first so YouTube's player has keyboard focus.
+- [ ] **VS Code.** Swipe: next / previous editor tab. Palm: command palette. Thumbs up: save. Fist: Escape. Pinch and move: page up / down.
+- [ ] **Finder.** Swipe: forward / back. Fist: enclosing folder. Quick pinch: open the selection. Thumbs up: Quick Look. Pinch and move: up / down the list.
+- [ ] **Zoom** (in a test meeting). Palm: mute / unmute. Fist: video. Thumbs up: raise hand. Zoom's shortcuts only work while its meeting window is focused.
+- [ ] **Google Meet.** Palm: mute (Cmd+D). Fist: camera (Cmd+E). Thumbs up: raise hand (Ctrl+Cmd+H).
+- [ ] **Keynote / PowerPoint.** Palm: start the show. Swipe: next / previous slide. Fist: end the show.
+- [ ] **Labels.** Each key gesture shows its label (e.g. "Next tab") on the HUD centre line.
+- [ ] **Cursor mode.** With cursor mode on, none of the above fire.
+- [ ] **Manual /key check** (Terminal, with the helper running and a TextEdit window in front within 3 s):
+  ```
+  sleep 3; curl -s -X POST localhost:7777/key -H 'Content-Type: application/json' -H 'Origin: http://localhost:5173' -d '{"combo":"shift+h"}'
+  ```
+  An "H" appears.
+
+To change what a gesture does in an app, edit `web/profiles/<app>.json` and reload the page. Combos are like `cmd+shift+t`; write `+` as `plus`.

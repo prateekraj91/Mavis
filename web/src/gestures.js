@@ -111,6 +111,8 @@ export const T = {
 };
 
 export const STATE = { ASLEEP: 'ASLEEP', AWAKE: 'AWAKE' };
+/** Every built-in gesture name the engine can fire (as `gesture:<name>`). */
+export const GESTURE_NAMES = Object.freeze(['swipe_right', 'swipe_left', 'palm', 'thumbs_up', 'pinch_up', 'pinch_down', 'pinch', 'fist']);
 
 // MediaPipe landmark indices
 const WRIST = 0;

@@ -1,0 +1,9 @@
+{
+  "app": "Google Meet",
+  "match": {"hosts": ["meet.google.com"]},
+  "gestures": {
+    "palm":       {"action": "key", "combo": "cmd+d", "label": "Mute / unmute"},
+    "fist":       {"action": "key", "combo": "cmd+e", "label": "Camera on / off"},
+    "thumbs_up":  {"action": "key", "combo": "ctrl+cmd+h", "label": "Raise / lower hand"}
+  }
+}

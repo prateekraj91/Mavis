@@ -7,8 +7,10 @@
 //   GET  /cursor/status                     cursor helper: ready, Accessibility permission, screen
 //   POST /cursor   {op, x, y, dx, dy}       move | down | up | click | scroll (x,y display 0..1)
 //   GET|POST /cursor/calibration {x0,y0,x1,y1}   camera area that maps to the display
+//   POST /key      {combo}                  press a key combo in the front app, e.g. "cmd+shift+t"
+//   GET  /front                             front app {app, bundleId, host} (host: browser tab)
 //   WS   /ws                                 low-latency channel: {t:'cursor', op, ...} in,
-//                                            {t:'input', ...status} out
+//                                            {t:'input', ...status} and {t:'front', ...} out
 // POST /open also takes {path} to open a file found through /fs.
 import express from 'express';
 import { WebSocketServer } from 'ws';
@@ -33,6 +35,8 @@ const spotify = await import('./spotify.js');
 const { stats } = await import('./system.js');
 const { listFolder, findHomeFolder, openablePath, fsError } = await import('./files.js');
 const input = await import('./input.js');
+const front = await import('./front.js');
+const { parseCombo } = await import('./keys.js');
 
 const PORT = Number(process.env.JARVIS_PORT) || 7777; // tests use another port
 // calibration.json (and later gestures.json) live here. Tests point it at a temp folder.
@@ -168,6 +172,30 @@ app.post('/cursor/calibration', async (req, res) => {
   res.json({ ok: true, ...c });
 });
 
+// ── keys + front app ──
+app.post('/key', (req, res) => {
+  let k;
+  try { k = parseCombo(req.body?.combo); } catch (err) { return res.status(400).json({ ok: false, error: err.message }); }
+  const s = input.status();
+  if (s.error) return res.status(503).json({ ok: false, error: s.error });
+  if (!s.ready) return res.status(503).json({ ok: false, error: 'Cursor helper is still starting' });
+  if (!s.trusted) {
+    return res.status(403).json({ ok: false, error: 'Allow Terminal under System Settings > Privacy & Security > Accessibility to press keys' });
+  }
+  input.write(`key ${k.code} ${k.flags}`);
+  res.json({ ok: true, combo: k.combo });
+});
+
+app.get('/front', (_req, res) => res.json(front.current()));
+
+// Dry-run only: pretend an app came to the front (tests have no real app switching).
+app.post('/front/simulate', async (req, res) => {
+  if (!input.isDry()) return res.status(404).json({ ok: false, error: 'Only in dry-run mode (JARVIS_INPUT=dry)' });
+  const { bundleId = '', app: name = '', host = '', pid = 1 } = req.body ?? {};
+  await front.setFront({ bundleId: String(bundleId), app: String(name), host: String(host), pid: Number(pid) || 1 });
+  res.json({ ok: true, ...front.current() });
+});
+
 // Dry-run only (JARVIS_INPUT=dry): the commands that would have been posted.
 app.get('/cursor/dry', (_req, res) => {
   const log = input.dryCommands();
@@ -212,9 +240,11 @@ server.on('upgrade', (req, socket, head) => {
 
 const broadcast = (msg) => { const s = JSON.stringify(msg); for (const c of wss.clients) if (c.readyState === 1) c.send(s); };
 input.onInputChange(broadcast);
+front.onFrontChange(broadcast);
 
 wss.on('connection', (ws) => {
   ws.send(JSON.stringify({ t: 'input', ...input.status() }));
+  ws.send(JSON.stringify({ t: 'front', ...front.current() }));
   ws.on('message', (data) => {
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
@@ -227,6 +257,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => { if (wss.clients.size === 0) input.releaseButton(); });
 });
 
+front.startFront();
 input.startInput().then(() => {
   const s = input.status();
   if (s.error) console.log(s.error);

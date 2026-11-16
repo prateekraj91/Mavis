@@ -73,3 +73,49 @@ Known issues and untested:
 - Scroll direction under your natural-scrolling setting is unverified (`C.SCROLL_NATURAL`).
 - Multi-monitor: only the main display. Dwell progress shows only on the HUD's ring, which you cannot see while working in another app.
 - No right-click yet.
+
+## Task 3: Per-app profiles
+
+Done:
+- The Swift helper now reports the frontmost app (`front <pid> <bundleId> <name>`). It uses the NSWorkspace activation notification, plus a 0.5 s poll as a backstop. It also gained `key <code> <flags>`, which presses and releases one key through Quartz.
+- `server/front.js` tracks the front app. When it is a browser (Chrome family or Safari), it reads the active tab's host through AppleScript once a second, because YouTube and Meet are tabs, not apps. Only the host leaves the helper, never the full URL. Changes are pushed over the WebSocket as `{t:'front', app, bundleId, host}` and readable at `GET /front`.
+- `server/keys.js` parses combos like `cmd+shift+]` into macOS virtual key codes plus modifier flags. It knows letters, digits, punctuation, arrows, F-keys, return/tab/space/escape/delete, page up/down and home/end, and rejects anything else.
+  - Navigation keys also get the Fn/keypad flags a real keyboard sends.
+- `POST /key {combo}`: answers 400 for a bad combo and 403 with a readable reason if Accessibility is missing.
+- Profiles: new JSON for Chrome (also matches Brave, Edge, Arc, Vivaldi, Safari), YouTube, VS Code (and Insiders, VSCodium, Cursor), Finder, Zoom, Google Meet, Keynote and PowerPoint. Spotify gained a `match` so it applies when the Spotify app is in front. The format is documented in `web/src/profiles.js`.
+- `web/src/api.js` picks the profile:
+  1. a matching browser tab host beats the browser app;
+  2. else the front app's bundle id;
+  3. else (Jarvis's own tab, or an app with no profile) the open panel's profile, Spotify by default, as before.
+  - New command `{action:'key', combo, label}`.
+- HUD: a profile chip at the top (gold = from the front app, grey = panel), and each key gesture's label on the centre line.
+- `web/src/socket.js` now owns the one WebSocket; `cursor.js` and `api.js` both use it.
+- Tests: `web/test/profiles.test.mjs` (9):
+  - every profile file is valid, with known gestures and combos the server's parser accepts;
+  - all required apps are present;
+  - bundle and host matching, look-alike hosts rejected, Jarvis tab and unknown apps fall back.
+  - Server: 4 more route tests for `/key` (codes, flags, rejects, origin) and front-app push.
+
+Decisions:
+- Gestures in an app without a profile keep controlling the panel (Spotify), as they did before this task, rather than doing nothing.
+- Only Spotify and Files are "panel" profiles. Saying "open Chrome" therefore does not make Chrome the fallback, which would send Ctrl+Tab into the Jarvis tab.
+- Both Zoom and Meet, and both Keynote and PowerPoint, got profiles, since each is a small file.
+- Some gestures fall through to Spotify where the app has no natural use for them (Chrome and Finder palm = play/pause), so music control stays one gesture away.
+- Gesture choices per app (my picks, easy to change in the JSON):
+  - Chrome: tabs on swipes, back on fist.
+  - YouTube: the player's own K / J / L / F / M / Shift+N keys.
+  - VS Code: editor tabs, command palette, save.
+  - Finder: history, enclosing folder, open, Quick Look.
+  - Zoom/Meet: mute, camera, raise hand.
+  - Slides: arrows, play, Escape.
+
+Verified here:
+- In headless Chrome against a dry-run helper, simulated app switches change the chip correctly (Chrome, YouTube, Jarvis tab → Spotify, VS Code, Notes → Spotify, Finder). Gestures send the right key codes, and cursor mode pauses them.
+- With the real helper: switching Finder → Chrome on this Mac was reported correctly.
+
+Known issues and untested:
+- No real key event was posted (no Accessibility permission in this session).
+- The AppleScript tab read was not run, to avoid an Automation prompt on your screen. YouTube and Meet detection is untested on the real browser.
+- Tab polling is once a second, so switching tabs takes up to 1 s to change profile.
+- Keys go to whichever app is in front. If Jarvis's tab is in front, no keys are sent (the panel profile applies).
+- Zoom's shortcuts work only in its meeting window. YouTube's need the player focused.

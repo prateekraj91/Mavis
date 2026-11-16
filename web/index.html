@@ -86,6 +86,7 @@
 
     <!-- Mode chips: cursor mode, active profile -->
     <div class="chips">
+      <span class="chip chip-profile" data-el="chip-profile" hidden></span>
       <span class="chip" data-el="chip-cursor" hidden>Cursor</span>
     </div>
 
@@ -128,6 +129,7 @@
     import { startVoice } from './src/voice.js';
     import { startCursor } from './src/cursor.js';
     import { initCalibration } from './src/calibrate.js';
+    import { connectHelper } from './src/socket.js';
 
     const params = new URLSearchParams(location.search);
     const hud = initHud({ perf: params.has('perf') || params.has('debug') });
@@ -137,7 +139,8 @@
     const engine = (window.jarvis = new GestureEngine());
     const demo = params.has('demo');
     // The dispatcher: gestures, voice and HUD clicks -> helper. Off in demo mode.
-    const cursor = demo ? null : startCursor({ engine, calibrate: initCalibration() });
+    const socket = demo ? null : connectHelper();
+    const cursor = demo ? null : startCursor({ engine, socket, calibrate: initCalibration() });
     const api = demo ? null : startApi({ engine, cursor });
     addEventListener('hud:start', () => {
       if (api) startVoice({ engine, execute: api.execute }); // same click unlocks the microphone

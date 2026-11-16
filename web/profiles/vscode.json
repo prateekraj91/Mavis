@@ -1,0 +1,13 @@
+{
+  "app": "VS Code",
+  "match": {"bundleIds": ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders", "com.vscodium", "com.todesktop.230313mzl4w4u92"]},
+  "gestures": {
+    "swipe_right":  {"action": "key", "combo": "alt+cmd+right", "label": "Next editor"},
+    "swipe_left":   {"action": "key", "combo": "alt+cmd+left", "label": "Previous editor"},
+    "palm":         {"action": "key", "combo": "cmd+shift+p", "label": "Command palette"},
+    "thumbs_up":    {"action": "key", "combo": "cmd+s", "label": "Save"},
+    "fist":         {"action": "key", "combo": "escape", "label": "Escape"},
+    "pinch_up":     {"action": "key", "combo": "pageup", "label": "Page up"},
+    "pinch_down":   {"action": "key", "combo": "pagedown", "label": "Page down"}
+  }
+}

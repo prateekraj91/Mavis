@@ -19,6 +19,7 @@
 //     today:list {items: [{text, time?, done?}]}
 //     hud:say {text}                           one-line message in the centre
 //     cursor:mode {on, dwell}                  real-cursor mode chip (cursor.js)
+//     profile:change {name, source}            active gesture profile chip (api.js)
 //     cursor:dwell {progress}                  dwell-click charge, shown on the ring
 //
 // Emits
@@ -227,6 +228,14 @@ export function initHud({ root = document.getElementById('hud'), bus = window, p
     restart(cursor, 'fired');
     // Until a dispatcher reports what it did, name the gesture itself.
     if (line.textContent === IDLE_LINE) setLine(pretty(d.name), 1200);
+  });
+
+  // ── profile chip ──
+  on('profile:change', (d) => {
+    const chip = el('chip-profile');
+    chip.hidden = !d.name;
+    chip.textContent = d.name || '';
+    chip.dataset.source = d.source || '';
   });
 
   // ── cursor mode chip ──

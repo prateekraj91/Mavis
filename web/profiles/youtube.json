@@ -1,0 +1,14 @@
+{
+  "app": "YouTube",
+  "match": {"hosts": ["youtube.com", "youtu.be"]},
+  "gestures": {
+    "palm":         {"action": "key", "combo": "k", "label": "Play / pause"},
+    "swipe_right":  {"action": "key", "combo": "l", "label": "Forward 10 s"},
+    "swipe_left":   {"action": "key", "combo": "j", "label": "Back 10 s"},
+    "thumbs_up":    {"action": "key", "combo": "shift+n", "label": "Next video"},
+    "fist":         {"action": "key", "combo": "f", "label": "Full screen"},
+    "pinch":        {"action": "key", "combo": "m", "label": "Mute"},
+    "pinch_up":     {"action": "key", "combo": "up", "label": "Volume up"},
+    "pinch_down":   {"action": "key", "combo": "down", "label": "Volume down"}
+  }
+}

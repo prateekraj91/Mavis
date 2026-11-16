@@ -1,0 +1,10 @@
+{
+  "app": "PowerPoint",
+  "match": {"bundleIds": ["com.microsoft.Powerpoint"]},
+  "gestures": {
+    "swipe_right":  {"action": "key", "combo": "right", "label": "Next slide"},
+    "swipe_left":   {"action": "key", "combo": "left", "label": "Previous slide"},
+    "palm":         {"action": "key", "combo": "cmd+shift+return", "label": "Play from start"},
+    "fist":         {"action": "key", "combo": "escape", "label": "End show"}
+  }
+}

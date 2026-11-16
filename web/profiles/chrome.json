@@ -1,0 +1,13 @@
+{
+  "app": "Chrome",
+  "match": {"bundleIds": ["com.google.Chrome", "com.google.Chrome.canary", "com.brave.Browser", "com.microsoft.edgemac", "company.thebrowser.Browser", "com.vivaldi.Vivaldi", "org.chromium.Chromium", "com.apple.Safari"]},
+  "gestures": {
+    "swipe_right":  {"action": "key", "combo": "ctrl+tab", "label": "Next tab"},
+    "swipe_left":   {"action": "key", "combo": "ctrl+shift+tab", "label": "Previous tab"},
+    "pinch_up":     {"action": "key", "combo": "up", "label": "Scroll up"},
+    "pinch_down":   {"action": "key", "combo": "down", "label": "Scroll down"},
+    "fist":         {"action": "key", "combo": "cmd+[", "label": "Back"},
+    "thumbs_up":    {"action": "key", "combo": "cmd+r", "label": "Reload"},
+    "palm":         {"action": "spotify", "do": "playpause"}
+  }
+}

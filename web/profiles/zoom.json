@@ -1,0 +1,9 @@
+{
+  "app": "Zoom",
+  "match": {"bundleIds": ["us.zoom.xos"]},
+  "gestures": {
+    "palm":       {"action": "key", "combo": "cmd+shift+a", "label": "Mute / unmute"},
+    "fist":       {"action": "key", "combo": "cmd+shift+v", "label": "Video on / off"},
+    "thumbs_up":  {"action": "key", "combo": "alt+y", "label": "Raise / lower hand"}
+  }
+}

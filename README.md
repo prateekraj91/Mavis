@@ -183,7 +183,6 @@ A should work. B, C and D are unknown until tested. If one fails:
 
 ## Not built yet
 
-- Chrome, YouTube and VS Code gesture profiles (they need a key-press endpoint in the helper).
 - A start script and launch at login.
 
 ## Layout

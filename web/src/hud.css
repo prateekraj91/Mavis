@@ -265,3 +265,5 @@ body {
   background: rgb(6 8 11 / 0.6);
 }
 [data-state='off'] .chips, [data-state='asleep'] .chips { opacity: 0.35; }
+.chip-profile { color: rgb(var(--ink) / 0.85); border-color: rgb(var(--ink) / 0.25); }
+.chip-profile[data-source='app'] { color: rgb(var(--a)); border-color: rgb(var(--a) / 0.45); }
