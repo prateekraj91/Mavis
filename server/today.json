@@ -1,0 +1,7 @@
+{
+  "items": [
+    { "time": "10:00", "text": "Example item with a time" },
+    { "text": "Example item without a time" },
+    { "time": "08:00", "text": "Example finished item", "done": true }
+  ]
+}

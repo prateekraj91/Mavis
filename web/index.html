@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jarvis</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./src/hud.css" />
+  <link rel="stylesheet" href="./src/files.css" />
+</head>
+<body>
+  <div id="hud" class="hud" data-state="off">
+    <div class="backdrop"></div>
+
+    <!-- Centre rings -->
+    <svg class="iris" viewBox="0 0 600 600" aria-hidden="true">
+      <circle class="pulse" cx="300" cy="300" r="286" />
+      <circle class="pulse pulse-2" cx="300" cy="300" r="286" />
+      <g class="ring" style="--i:4"><circle cx="300" cy="300" r="286" class="hair" /></g>
+      <g class="ring" style="--i:3"><circle cx="300" cy="300" r="268" class="ticks spin-slow" /></g>
+      <g class="ring" style="--i:2"><circle cx="300" cy="300" r="236" class="arcs spin-back" /></g>
+      <g class="ring" style="--i:1"><circle cx="300" cy="300" r="196" class="hair" /><circle cx="300" cy="300" r="188" class="dash spin-mid" /></g>
+      <g class="ring" style="--i:0"><circle cx="300" cy="300" r="132" class="inner" /></g>
+    </svg>
+    <div class="core">
+      <div class="core-name">Jarvis</div>
+      <div class="core-line" data-el="line">Ready</div>
+    </div>
+
+    <!-- Left column -->
+    <aside class="col col-left">
+      <section class="panel clock" style="--i:0">
+        <div class="clock-time"><span data-el="time">00:00</span><span class="clock-sec" data-el="sec">00</span></div>
+        <div class="clock-date" data-el="date"></div>
+      </section>
+      <section class="panel" style="--i:1">
+        <h2>Today</h2>
+        <ul class="today" data-el="today"><li class="empty">Nothing listed for today.</li></ul>
+      </section>
+    </aside>
+
+    <!-- Right column -->
+    <aside class="col col-right">
+      <section class="panel" style="--i:0">
+        <h2>System</h2>
+        <div class="stat" data-stat="cpu"><span>Processor</span><b>–</b><i><u></u></i></div>
+        <div class="stat" data-stat="mem"><span>Memory</span><b>–</b><i><u></u></i></div>
+        <div class="stat" data-stat="battery"><span>Battery</span><b>–</b><i><u></u></i></div>
+      </section>
+      <section class="panel playing" style="--i:1" data-el="mini" hidden>
+        <h2>Now playing</h2>
+        <div class="playing-title" data-el="mini-title"></div>
+        <div class="playing-artist" data-el="mini-artist"></div>
+        <div class="bar"><u data-el="mini-bar"></u></div>
+      </section>
+    </aside>
+
+    <!-- Spotify centre panel -->
+    <section class="spotify" data-el="spotify" aria-label="Spotify">
+      <div class="art">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="15" /><circle cx="24" cy="24" r="3" /></svg>
+        <img data-el="art" alt="" hidden />
+      </div>
+      <div class="track">
+        <div class="track-source">Spotify</div>
+        <div class="track-title" data-el="title">Nothing playing</div>
+        <div class="track-artist" data-el="artist">Say “play” and a song name</div>
+        <div class="progress">
+          <div class="bar"><u data-el="bar"></u></div>
+          <div class="times"><span data-el="elapsed">0:00</span><span data-el="total">0:00</span></div>
+        </div>
+        <div class="controls">
+          <button data-do="previous" aria-label="Previous track"><svg viewBox="0 0 24 24"><path d="M7 6v12M19 6l-9 6 9 6z" /></svg></button>
+          <button data-do="playpause" class="main" aria-label="Play or pause">
+            <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5l11 7-11 7z" /></svg>
+            <svg viewBox="0 0 24 24" class="i-pause"><path d="M8 5v14M16 5v14" /></svg>
+          </button>
+          <button data-do="next" aria-label="Next track"><svg viewBox="0 0 24 24"><path d="M17 6v12M5 6l9 6-9 6z" /></svg></button>
+          <button data-do="like" aria-label="Like song"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg></button>
+        </div>
+        <div class="volume" data-el="volume">
+          <span>Volume</span><div class="bar"><u data-el="vol-bar"></u></div><b data-el="vol">–</b>
+        </div>
+      </div>
+    </section>
+
+    <!-- Voice pill -->
+    <div class="pill" data-el="pill"><span class="pill-bars"><i></i><i></i><i></i></span><span data-el="pill-text">Voice off</span></div>
+
+    <!-- Hand cursor -->
+    <div class="cursor" data-el="cursor" aria-hidden="true">
+      <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" class="c-base" /><circle cx="24" cy="24" r="19" class="c-prog" data-el="c-prog" /></svg>
+    </div>
+
+    <!-- Asleep badge -->
+    <div class="badge">
+      <span class="badge-dot"></span>Asleep. Say “Jarvis” or hold an open palm.
+      <i><u data-el="wake-bar"></u></i>
+    </div>
+
+    <!-- Start gate (browsers need a click before camera and microphone) -->
+    <div class="gate">
+      <div class="gate-name">Jarvis</div>
+      <p data-el="gate-note">Uses your camera and microphone. Nothing is recorded.</p>
+      <button data-el="start">Start</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { GestureEngine } from './src/gestures.js';
+    import { initHud } from './src/hud.js';
+    import { initFiles } from './src/files.js';
+    import { startApi } from './src/api.js';
+    import { startVoice } from './src/voice.js';
+
+    const params = new URLSearchParams(location.search);
+    const hud = initHud();
+    initFiles();
+    if (params.get('accent')) hud.setAccent(params.get('accent'));
+
+    const engine = (window.jarvis = new GestureEngine());
+    const demo = params.has('demo');
+    // The dispatcher: gestures, voice and HUD clicks -> helper. Off in demo mode.
+    const api = demo ? null : startApi({ engine });
+    addEventListener('hud:start', () => {
+      if (api) startVoice({ engine, execute: api.execute }); // same click unlocks the microphone
+      engine.start({ debug: params.has('debug') }).catch(() => {});
+    });
+
+    // ?demo feeds the HUD fake data and adds test keys (see src/demo.js).
+    if (demo) import('./src/demo.js').then((m) => m.runDemo(engine));
+  </script>
+</body>
+</html>

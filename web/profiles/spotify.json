@@ -1,0 +1,11 @@
+{
+  "app": "Spotify",
+  "gestures": {
+    "swipe_right": { "action": "spotify", "do": "next" },
+    "swipe_left":  { "action": "spotify", "do": "previous" },
+    "palm":        { "action": "spotify", "do": "playpause" },
+    "pinch_up":    { "action": "spotify", "do": "volume_up" },
+    "pinch_down":  { "action": "spotify", "do": "volume_down" },
+    "thumbs_up":   { "action": "spotify", "do": "like" }
+  }
+}

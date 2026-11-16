@@ -1,0 +1,79 @@
+/* Holographic folder browser. Uses the HUD's variables (--a accent, --ink, --ease). */
+.files {
+  position: absolute; left: 50%; top: 50%;
+  width: min(1120px, 82vw);
+  transform: translate(-50%, -50%) scale(0.94);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s ease-in;
+}
+[data-state='awake'][data-app='files'] .files {
+  opacity: 1; pointer-events: auto; transform: translate(-50%, -50%);
+  transition: opacity 0.35s, transform 0.5s var(--ease);
+}
+
+/* The grid needs the width: side panels step out while browsing. */
+.hud[data-state='awake'][data-app='files'] .panel {
+  opacity: 0; transform: translateX(var(--from));
+  transition: opacity 0.3s, transform 0.35s ease-in; transition-delay: 0s;
+}
+.hud[data-app='files'] .iris { opacity: 0.22; }
+
+.files header, .files footer {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 24px;
+  font-size: 13px; color: rgb(var(--ink) / 0.5);
+}
+.files header { padding-bottom: 12px; border-bottom: 1px solid rgb(var(--a) / 0.2); }
+.files footer { padding-top: 12px; border-top: 1px solid rgb(var(--a) / 0.12); }
+.files-path { font-size: 20px; font-weight: 300; color: rgb(var(--ink) / 0.95); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.files-count, .files-page { flex: none; }
+.files-page { color: rgb(var(--a)); }
+
+.files-stage { perspective: 1300px; padding: 38px 0 44px; min-height: 46vh; display: grid; align-items: center; }
+.files-empty { text-align: center; color: rgb(var(--ink) / 0.5); font-size: 15px; margin: 0; grid-area: 1 / 1; }
+.files-grid {
+  grid-area: 1 / 1;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;
+  transform-style: preserve-3d;
+  /* tilts toward the hand: --tx / --ty run -1..1 */
+  transform: rotateX(calc(9deg - var(--ty, 0) * 5deg)) rotateY(calc(var(--tx, 0) * 8deg));
+  transition: transform 0.3s ease-out;
+}
+
+.fcard {
+  all: unset; box-sizing: border-box; display: block; cursor: pointer; min-width: 0;
+  translate: 0 0 var(--z, 0px);
+  transition: translate 0.25s var(--ease), scale 0.25s var(--ease);
+  transform-style: preserve-3d;
+}
+.fcard-in {
+  height: 100%; box-sizing: border-box; padding: 14px 14px 12px;
+  background: rgb(16 20 26 / 0.72);
+  border: 1px solid rgb(var(--a) / 0.2); border-radius: 3px;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  animation: bob 6s ease-in-out infinite; animation-delay: var(--bob, 0s);
+}
+@keyframes bob { 0%, 100% { transform: translateY(-3px); } 50% { transform: translateY(3px); } }
+
+.fcard.hot, .fcard:hover, .fcard:focus-visible { translate: 0 -6px calc(var(--z, 0px) + 54px); scale: 1.05; }
+.fcard.hot .fcard-in, .fcard:hover .fcard-in, .fcard:focus-visible .fcard-in {
+  border-color: rgb(var(--a) / 0.85); background: rgb(22 26 32 / 0.9);
+  box-shadow: 0 0 0 1px rgb(var(--a) / 0.25), 0 18px 40px rgb(0 0 0 / 0.5), 0 0 34px rgb(var(--a) / 0.14);
+}
+.fcard.picked .fcard-in { animation: picked 0.45s ease-out; }
+@keyframes picked { from { background: rgb(var(--a) / 0.45); } }
+
+.fcard-icon { position: relative; width: 34px; height: 34px; color: rgb(var(--ink) / 0.6); }
+.fcard.dir .fcard-icon { color: rgb(var(--a)); }
+.fcard-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1; stroke-linejoin: round; }
+.fcard.dir .fcard-icon svg { fill: rgb(var(--a) / 0.1); }
+.fcard-icon b { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 7.5px; font-weight: 600; color: rgb(var(--a)); }
+.fcard-name {
+  margin-top: 10px; height: 2.6em; font-size: 14px; line-height: 1.3; color: rgb(var(--ink) / 0.92);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+}
+.fcard-meta { margin-top: 8px; font-size: 11.5px; color: rgb(var(--ink) / 0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fcard-in { animation: none; }
+  .files-grid { transition: none; }
+}

@@ -1,0 +1,9 @@
+{
+  "app": "Files",
+  "gestures": {
+    "pinch":       { "action": "files", "do": "open" },
+    "fist":        { "action": "files", "do": "back" },
+    "swipe_right": { "action": "files", "do": "next_page" },
+    "swipe_left":  { "action": "files", "do": "prev_page" }
+  }
+}
