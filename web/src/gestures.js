@@ -17,10 +17,14 @@
 //   hand:move {x, y, pinched, pose}      every frame, mirrored 0..1 coords
 //   hand {present, x, y, pinch, pinchRatio, pinchPoint, palm, pose, fingers, t}
 //                                        every frame, ASLEEP too: x,y = index fingertip,
-//                                        for driving the real cursor. {present:false} on loss
+//                                        One Euro filtered from the raw landmarks, for
+//                                        driving the real cursor. {present:false} on loss
 //   pose:change {pose, prev}             palm | fist | thumbs_up | pinch | none
 //   hold:progress {pose, action, progress}   0..1 while a hold is charging
 //   pinch:start {x, y} | pinch:end {x, y}
+//   perf {fps, latencyMs, latencyP95Ms, detectMs, delegate, input, driver, clock}
+//                                        every PERF_REPORT_MS while running. latency = camera
+//                                        capture -> events dispatched for that frame
 //   gesture:<name> {name, ...}           plus a generic `gesture` event
 //     swipe_right, swipe_left, palm, thumbs_up, pinch_up, pinch_down,
 //     pinch (quick pinch-and-release, for "click"), fist (short fist, for "back")
@@ -30,6 +34,8 @@
 
 // ───────────────────────── tunables ─────────────────────────
 // Mutable on purpose: tweak live from the console via `jarvis.T.SWIPE_MIN_DX = 0.2`.
+import { PerfMeter, PointFilter } from './filters.js';
+
 export const T = {
   // Model + camera
   WASM_URL: '/node_modules/@mediapipe/tasks-vision/wasm', // served by Vite dev
@@ -38,14 +44,24 @@ export const T = {
     'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
   CAMERA_WIDTH: 640,
   CAMERA_HEIGHT: 480,
-  TICK_MS: 33, // detection rate (~30 fps)
+  DETECT_WIDTH: 320, // each frame is downscaled to this before detection
+  DETECT_HEIGHT: 240,
+  DELEGATE: 'GPU', // falls back to 'CPU' if GPU fails to load or to run
+  // Frames are driven by requestVideoFrameCallback. When it stalls (background tab,
+  // minimised window) a worker timer takes over at TICK_MS.
+  TICK_MS: 33,
+  TIMER_TAKEOVER_MS: 120, // no video-frame callback for this long -> timer drives
   MIRROR: true, // flip x so coords match what the user sees
   MIN_DETECTION_CONFIDENCE: 0.6,
   MIN_PRESENCE_CONFIDENCE: 0.6,
   MIN_TRACKING_CONFIDENCE: 0.6,
 
   // Smoothing + presence
-  EMA_ALPHA: 0.5, // 1 = no smoothing
+  EMA_ALPHA: 0.5, // landmarks used for pose/gesture classification. 1 = no smoothing
+  // One Euro filter on the pointer (`hand` x,y and `hand:move`), fed raw landmarks.
+  POINTER_MIN_CUTOFF: 0.6, // Hz. Lower = steadier when still
+  POINTER_BETA: 8, // higher = less lag when moving fast (coords are 0..1, so speeds ~0.5-3 /s)
+  POINTER_D_CUTOFF: 1.0, // Hz
   HAND_LOST_GRACE_MS: 250, // tolerate dropped detections this long
   POSE_DEBOUNCE_MS: 100, // a pose must persist this long to count
 
@@ -86,7 +102,9 @@ export const T = {
   WAKE_GRACE_MS: 600, // ignore gestures right after waking
   IDLE_SLEEP_MS: 30000,
 
-  // Debug
+  // Debug + perf
+  PERF_REPORT_MS: 500,
+  PERF_WINDOW_MS: 2000,
   DEBUG_REFRESH_MS: 100,
   DEBUG_TOGGLE_KEY: 'D', // Shift+D
   MIRROR_EVENTS_TO_WINDOW: true,
@@ -110,6 +128,7 @@ const FINGERS = [
 const PALM_POINTS = [WRIST, INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP];
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const pointerOpts = () => ({ minCutoff: T.POINTER_MIN_CUTOFF, beta: T.POINTER_BETA, dCutoff: T.POINTER_D_CUTOFF });
 
 // ───────────────────────── pure geometry ─────────────────────────
 
@@ -186,6 +205,11 @@ export class GestureEngine extends EventTarget {
     this._fpsEma = 0;
     this._lastFrameT = 0;
     this._dbg = { on: false, el: null, lastDraw: 0, m: null, swipeDx: 0 };
+    this.tipFilter = new PointFilter(pointerOpts());
+    this.moveFilter = new PointFilter(pointerOpts());
+    this.perf = new PerfMeter({ windowMs: T.PERF_WINDOW_MS });
+    this.delegate = null;
+    this.driver = null; // 'video-frame' | 'timer'
   }
 
   _resetTracking() {
@@ -198,6 +222,8 @@ export class GestureEngine extends EventTarget {
     this.hold = null;
     this.swipeHist = [];
     this.pinch = { active: false, start: 0, anchorY: 0, stepped: false, origin: null, last: null };
+    this.tipFilter?.reset();
+    this.moveFilter?.reset();
   }
 
   // ── events ──
@@ -297,15 +323,26 @@ export class GestureEngine extends EventTarget {
     this._updateSwipe(m, t);
     this._updateHold(m, t);
 
-    const p = this.pinch.active ? m.pinchPoint : m.center;
+    // Pointers come from the raw landmarks through a One Euro filter: the EMA above
+    // lags a frame or two, which is fine for poses but felt as drag on a cursor.
+    this.tipFilter.set(pointerOpts());
+    this.moveFilter.set(pointerOpts());
+    const mx = (x) => (T.MIRROR ? 1 - x : x);
+    const raw = (i) => ({ x: mx(rawLm[i].x), y: rawLm[i].y });
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const rawMove = this.pinch.active
+      ? mid(raw(THUMB_TIP), raw(INDEX_TIP))
+      : PALM_POINTS.map(raw).reduce((acc, q) => ({ x: acc.x + q.x / PALM_POINTS.length, y: acc.y + q.y / PALM_POINTS.length }), { x: 0, y: 0 });
+    const p = this.moveFilter.filter(rawMove, t);
     this.emit('hand:move', { x: p.x, y: p.y, pinched: this.pinch.active, pose: this.pose });
 
-    // Raw pointer feed for an OS-cursor helper: fires every frame, in both states.
+    const tip = this.tipFilter.filter(raw(INDEX_TIP), t);
+    // Pointer feed for the OS-cursor helper: fires every frame, in both states.
     this.emit('hand', {
       present: true,
       t,
-      x: clamp01(lm[INDEX_TIP].x), // index fingertip
-      y: clamp01(lm[INDEX_TIP].y),
+      x: clamp01(tip.x), // index fingertip
+      y: clamp01(tip.y),
       pinch: this.pinch.active,
       pinchRatio: m.pinchRatio,
       pinchPoint: { ...m.pinchPoint }, // steadier than the fingertip while pinched
@@ -468,14 +505,15 @@ export class GestureEngine extends EventTarget {
     if (this.running) return this;
     this.setDebug(debug);
     try {
-      const [landmarker, stream] = await Promise.all([
-        createLandmarker(),
+      const [{ landmarker, delegate }, stream] = await Promise.all([
+        createLandmarker(T.DELEGATE),
         navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { width: T.CAMERA_WIDTH, height: T.CAMERA_HEIGHT, facingMode: 'user' },
         }),
       ]);
       this.landmarker = landmarker;
+      this.delegate = delegate;
       this.stream = stream;
 
       if (!video) {
@@ -491,10 +529,39 @@ export class GestureEngine extends EventTarget {
       await video.play();
       this.video = video;
       this._lastVideoTime = -1;
+      this._lastProcessT = -Infinity;
+      this._lastPerfT = 0;
+      // Detection runs on a small copy of each frame: about 4x fewer pixels than 640x480.
+      this._canvas = document.createElement('canvas');
+      this._canvas.width = T.DETECT_WIDTH;
+      this._canvas.height = T.DETECT_HEIGHT;
+      this._ctx = this._canvas.getContext('2d', { alpha: false, desynchronized: true });
+      // Warm up: the first detection compiles shaders (slow on GPU). Do it now, on a
+      // blank frame, so the first real frame is not late. A GPU that loads but cannot
+      // run fails here, and is swapped for CPU before anything is live.
+      this._ctx.drawImage(video, 0, 0, T.DETECT_WIDTH, T.DETECT_HEIGHT);
+      try {
+        this.landmarker.detectForVideo(this._canvas, performance.now());
+      } catch (err) {
+        if (this.delegate !== 'GPU') throw err;
+        console.warn('[jarvis] GPU delegate failed on first frame, using CPU:', err);
+        this.landmarker.close?.();
+        ({ landmarker: this.landmarker, delegate: this.delegate } = await createLandmarker('CPU'));
+        this.landmarker.detectForVideo(this._canvas, performance.now());
+      }
       this.running = true;
 
-      // A worker timer keeps ticking when the tab is in the background
-      // (requestAnimationFrame stops there, and Spotify will often be in front).
+      // requestVideoFrameCallback runs once per new camera frame, with its capture time.
+      if ('requestVideoFrameCallback' in video) {
+        const onFrame = (now, meta) => {
+          if (!this.running || this.video !== video) return;
+          this._process(meta?.captureTime ?? meta?.receiveTime ?? now, meta?.captureTime ? 'capture' : meta?.receiveTime ? 'receive' : 'callback', 'video-frame', meta?.mediaTime);
+          video.requestVideoFrameCallback(onFrame);
+        };
+        video.requestVideoFrameCallback(onFrame);
+      }
+      // Chrome stops video-frame callbacks in hidden tabs. A worker timer is not
+      // throttled there, and takes over whenever the callbacks stall.
       this._stopTicker = createTicker(() => this._tick(), T.TICK_MS);
 
       if (typeof window !== 'undefined') {
@@ -527,23 +594,66 @@ export class GestureEngine extends EventTarget {
   }
 
   _tick() {
-    const v = this.video;
-    if (!this.running || !v || v.readyState < 2) return;
     const t = performance.now();
-    if (v.currentTime === this._lastVideoTime) { this._checkIdle(t); return; }
-    this._lastVideoTime = v.currentTime;
+    if (!this.running) return;
+    if (t - this._lastProcessT < T.TIMER_TAKEOVER_MS && this.driver === 'video-frame') { return; }
+    // No capture time on this path: latency is measured from when the frame was seen.
+    if (!this._process(t, 'timer', 'timer')) this._checkIdle(t);
+  }
+
+  /** Detect on the current video frame. Returns false if there was no new frame. */
+  _process(captureT, clock, driver, mediaTime) {
+    const v = this.video;
+    if (!v || v.readyState < 2 || this._swapping) return false;
+    const frameTime = mediaTime ?? v.currentTime;
+    if (frameTime === this._lastVideoTime) return false;
+    this._lastVideoTime = frameTime;
+    const t = performance.now();
+    this._lastProcessT = t;
+    this.driver = driver;
+
     let res;
     try {
-      res = this.landmarker.detectForVideo(v, t);
+      this._ctx.drawImage(v, 0, 0, T.DETECT_WIDTH, T.DETECT_HEIGHT);
+      res = this.landmarker.detectForVideo(this._canvas, t);
     } catch (error) {
-      if (!this._detectErrored) {
-        this._detectErrored = true;
-        this.emit('engine:error', { error, message: String(error?.message ?? error) });
-      }
-      return;
+      this._onDetectError(error);
+      return true;
     }
+    const detectMs = performance.now() - t;
     const aspect = v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : this.aspect;
     this.update(res.landmarks?.[0] ?? null, t, aspect);
+
+    const done = performance.now();
+    this.perf.frame(Math.min(captureT, t), done, detectMs);
+    if (done - this._lastPerfT >= T.PERF_REPORT_MS) {
+      this._lastPerfT = done;
+      this.emit('perf', {
+        ...this.perf.report(done),
+        delegate: this.delegate,
+        input: `${T.DETECT_WIDTH}x${T.DETECT_HEIGHT}`,
+        driver,
+        clock, // capture = true camera capture time; otherwise latency is under-reported
+      });
+    }
+    return true;
+  }
+
+  /** GPU can fail at run time (lost context, driver bug): rebuild on CPU once. */
+  _onDetectError(error) {
+    if (this.delegate === 'GPU' && !this._swapping) {
+      this._swapping = true;
+      this.landmarker?.close?.();
+      createLandmarker('CPU')
+        .then(({ landmarker, delegate }) => { this.landmarker = landmarker; this.delegate = delegate; })
+        .catch((e) => this.emit('engine:error', { error: e, message: String(e?.message ?? e) }))
+        .finally(() => { this._swapping = false; });
+      return;
+    }
+    if (!this._detectErrored) {
+      this._detectErrored = true;
+      this.emit('engine:error', { error, message: String(error?.message ?? error) });
+    }
   }
 
   // ── debug overlay ──
@@ -571,7 +681,7 @@ export class GestureEngine extends EventTarget {
     const cd = (key, ms = T.GESTURE_COOLDOWN_MS) => Math.max(0, ms - (t - (this.lastFired[key] ?? -Infinity)));
     const lines = [
       `state      ${this.state}${this.state === STATE.AWAKE ? `   idle sleep in ${f(Math.max(0, T.IDLE_SLEEP_MS - (t - this.lastActivityT)) / 1000, 1)}s` : ''}`,
-      `fps        ${f(this._fpsEma, 0)}`,
+      `fps        ${f(this._fpsEma, 0)}   ${this.delegate ?? '-'} ${T.DETECT_WIDTH}x${T.DETECT_HEIGHT} via ${this.driver ?? '-'}`,
       `hand       ${this.handPresent ? 'yes' : 'no'}`,
     ];
     const m = d.m;
@@ -609,7 +719,7 @@ async function resolveModelUrl() {
   return T.MODEL_FALLBACK_URL;
 }
 
-async function createLandmarker() {
+async function createLandmarker(preferred = 'GPU') {
   const { FilesetResolver, HandLandmarker } = await import('@mediapipe/tasks-vision');
   const fileset = await FilesetResolver.forVisionTasks(T.WASM_URL);
   const modelAssetPath = await resolveModelUrl();
@@ -622,11 +732,14 @@ async function createLandmarker() {
       minHandPresenceConfidence: T.MIN_PRESENCE_CONFIDENCE,
       minTrackingConfidence: T.MIN_TRACKING_CONFIDENCE,
     });
-  try {
-    return await make('GPU');
-  } catch {
-    return await make('CPU');
+  if (preferred === 'GPU') {
+    try {
+      return { landmarker: await make('GPU'), delegate: 'GPU' };
+    } catch (err) {
+      console.warn('[jarvis] GPU delegate failed, using CPU:', err);
+    }
   }
+  return { landmarker: await make('CPU'), delegate: 'CPU' };
 }
 
 /** setInterval that is not throttled in background tabs (falls back to a plain interval). */

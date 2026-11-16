@@ -239,3 +239,17 @@ body {
   .spin-slow, .spin-mid, .spin-back, .pulse, .pill-bars i { animation: none !important; }
   .ring, .panel, .spotify, .iris { transition-duration: 0.01s !important; transition-delay: 0s !important; }
 }
+
+/* ── perf panel ── */
+.perf {
+  position: absolute; right: 16px; bottom: 16px; z-index: 50;
+  display: grid; grid-template-columns: repeat(4, auto); gap: 4px 16px;
+  padding: 10px 14px; border: 1px solid rgb(var(--a) / 0.3); border-radius: 8px;
+  background: rgb(6 8 11 / 0.82); font: 11px/1.4 ui-monospace, Menlo, monospace;
+  pointer-events: none;
+}
+.perf div { display: flex; flex-direction: column; }
+.perf span { color: rgb(var(--ink) / 0.5); text-transform: uppercase; letter-spacing: 0.08em; font-size: 9px; }
+.perf b { font-weight: 500; color: rgb(var(--a)); font-size: 15px; }
+.perf b.warn { color: #e89a7a; }
+.perf .perf-note { grid-column: 1 / -1; color: rgb(var(--ink) / 0.5); }

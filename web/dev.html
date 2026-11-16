@@ -22,6 +22,7 @@
     <button id="start">Start</button><span id="badge">ASLEEP</span>
     <p>Hold an open palm 1 s to wake (or press W). S sleeps. Shift+D toggles the debug panel.</p>
     <div id="bar"><i></i></div>
+    <p id="perf">perf: waiting for frames</p>
     <ul id="log"></ul>
   </main>
   <script type="module">
@@ -49,6 +50,9 @@
       c.style.left = `${d.x * innerWidth}px`;
       c.style.top = `${d.y * innerHeight}px`;
       c.classList.toggle('pinched', d.pinched);
+    });
+    engine.on('perf', (d) => {
+      $('#perf').textContent = `${Math.round(d.fps)} fps · latency ${Math.round(d.latencyMs)} ms (p95 ${Math.round(d.latencyP95Ms)}) · detect ${d.detectMs.toFixed(1)} ms · ${d.delegate} ${d.input} via ${d.driver}, clock ${d.clock}`;
     });
     engine.on('hand:lost', () => { $('#cursor').style.display = 'none'; });
     $('#start').onclick = async () => {

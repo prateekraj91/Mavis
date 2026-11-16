@@ -92,6 +92,15 @@
       <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" class="c-base" /><circle cx="24" cy="24" r="19" class="c-prog" data-el="c-prog" /></svg>
     </div>
 
+    <!-- Perf panel (?perf or ?debug, Shift+P toggles) -->
+    <div class="perf" data-el="perf" hidden>
+      <div><span>FPS</span><b data-el="perf-fps">–</b></div>
+      <div><span>Latency</span><b data-el="perf-lat">–</b></div>
+      <div><span>p95</span><b data-el="perf-p95">–</b></div>
+      <div><span>Detect</span><b data-el="perf-det">–</b></div>
+      <div class="perf-note" data-el="perf-note"></div>
+    </div>
+
     <!-- Asleep badge -->
     <div class="badge">
       <span class="badge-dot"></span>Asleep. Say “Jarvis” or hold an open palm.
@@ -114,7 +123,7 @@
     import { startVoice } from './src/voice.js';
 
     const params = new URLSearchParams(location.search);
-    const hud = initHud();
+    const hud = initHud({ perf: params.has('perf') || params.has('debug') });
     initFiles();
     if (params.get('accent')) hud.setAccent(params.get('accent'));
 

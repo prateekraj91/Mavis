@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node test/gestures.test.mjs && node test/voice.test.mjs",
+    "test": "for f in test/*.test.mjs; do node \"$f\" || exit 1; done",
     "postinstall": "mkdir -p public/models && [ -s public/models/hand_landmarker.task ] || curl -fsSL -o public/models/hand_landmarker.task https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task || true"
   },
   "dependencies": {

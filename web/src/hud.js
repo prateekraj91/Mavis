@@ -8,6 +8,7 @@
 //     hand:move {x, y, pinched} | hand:lost
 //     hold:progress {action, progress}        action: wake | palm | sleep | thumbs_up | null
 //     gesture {name}
+//     perf {fps, latencyMs, latencyP95Ms, detectMs, delegate, input, driver, clock}
 //   From voice.js / api.js (Prompt 3 emits these)
 //     voice:listening {on}
 //     voice:heard {text, final}
@@ -26,14 +27,17 @@ const IDLE_LINE = 'Ready';
 const PANEL_APPS = new Set(['spotify', 'files']); // apps that take over the centre
 const LINE_MS = 2200;
 const HEARD_MS = 3000;
-const CURSOR_LERP = 0.35;
+const CURSOR_LERP = 0.6; // the engine already One Euro filters hand:move
+const PERF_TOGGLE_KEY = 'P'; // Shift+P
+const PERF_WARN_LATENCY_MS = 80;
+const PERF_WARN_FPS = 20;
 const RING_LEN = 119.4; // circumference of the cursor ring (r = 19)
 
 const pretty = (s) => { const t = String(s ?? '').replace(/[_:]/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
 const pct = (v) => `${Math.max(0, Math.min(100, v))}%`;
 const mmss = (ms) => { const s = Math.max(0, Math.floor((ms || 0) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
-export function initHud({ root = document.getElementById('hud'), bus = window } = {}) {
+export function initHud({ root = document.getElementById('hud'), bus = window, perf = false } = {}) {
   const el = (name) => root.querySelector(`[data-el="${name}"]`);
   const on = (type, fn) => bus.addEventListener(type, (e) => fn(e.detail || {}));
   const send = (type, detail = {}) => bus.dispatchEvent(new CustomEvent(type, { detail }));
@@ -221,6 +225,24 @@ export function initHud({ root = document.getElementById('hud'), bus = window } 
     restart(cursor, 'fired');
     // Until a dispatcher reports what it did, name the gesture itself.
     if (line.textContent === IDLE_LINE) setLine(pretty(d.name), 1200);
+  });
+
+  // ── perf panel ──
+  const perfEl = el('perf');
+  perfEl.hidden = !perf;
+  addEventListener('keydown', (e) => {
+    const tag = e.target?.tagName;
+    if (e.shiftKey && e.key === PERF_TOGGLE_KEY && tag !== 'INPUT' && tag !== 'TEXTAREA') perfEl.hidden = !perfEl.hidden;
+  });
+  on('perf', (d) => {
+    if (perfEl.hidden) return;
+    const put = (name, text, warn) => { const b = el(name); b.textContent = text; b.classList.toggle('warn', !!warn); };
+    put('perf-fps', Math.round(d.fps), d.fps < PERF_WARN_FPS);
+    put('perf-lat', `${Math.round(d.latencyMs)} ms`, d.latencyMs > PERF_WARN_LATENCY_MS);
+    put('perf-p95', `${Math.round(d.latencyP95Ms)} ms`, d.latencyP95Ms > PERF_WARN_LATENCY_MS);
+    put('perf-det', `${d.detectMs.toFixed(1)} ms`);
+    const clock = d.clock === 'capture' ? 'from capture' : `from ${d.clock} (no capture time, reads low)`;
+    el('perf-note').textContent = `${d.delegate} · ${d.input} · ${d.driver} · ${clock}`;
   });
 
   return {
