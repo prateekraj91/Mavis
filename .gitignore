@@ -3,3 +3,5 @@ node_modules/
 .DS_Store
 server/calibration.json
 server/native/bin/
+server/.env
+web/public/models/

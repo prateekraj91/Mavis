@@ -185,4 +185,6 @@ Decisions and unusual things:
 - macOS may ask for Accessibility again because the helper binary has a new name. If the cursor does not move, check System Settings → Privacy & Security → Accessibility.
 - `server/package-lock.json` had an uncommitted `hasInstallScript` line from npm; it is correct and was committed with the rename.
 
+- Before pushing: `.gitignore` now also lists `server/.env` and `web/public/models/`. The 7.8 MB hand model was tracked; it is now untracked (still on disk). `npm install` in `web/` downloads it, with Google's CDN as fallback. No `.env` was ever committed, and no keys or tokens were found in any commit.
+
 Tests: web `npm test` and server `npm test` all pass.
