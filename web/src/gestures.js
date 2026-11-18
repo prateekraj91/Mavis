@@ -1,4 +1,4 @@
-// JARVIS gesture engine: MediaPipe Hand Landmarker -> smoothed landmarks ->
+// MAVIS gesture engine: MediaPipe Hand Landmarker -> smoothed landmarks ->
 // pose classifier -> gesture detectors -> ASLEEP/AWAKE state machine -> events.
 //
 // Usage:
@@ -34,7 +34,7 @@
 // increases x. y grows downward.
 
 // ───────────────────────── tunables ─────────────────────────
-// Mutable on purpose: tweak live from the console via `jarvis.T.SWIPE_MIN_DX = 0.2`.
+// Mutable on purpose: tweak live from the console via `mavis.T.SWIPE_MIN_DX = 0.2`.
 import { PerfMeter, PointFilter } from './filters.js';
 import { features } from './knn.js';
 
@@ -584,7 +584,7 @@ export class GestureEngine extends EventTarget {
         this.landmarker.detectForVideo(this._canvas, performance.now());
       } catch (err) {
         if (this.delegate !== 'GPU') throw err;
-        console.warn('[jarvis] GPU delegate failed on first frame, using CPU:', err);
+        console.warn('[mavis] GPU delegate failed on first frame, using CPU:', err);
         this.landmarker.close?.();
         ({ landmarker: this.landmarker, delegate: this.delegate } = await createLandmarker('CPU'));
         this.landmarker.detectForVideo(this._canvas, performance.now());
@@ -703,7 +703,7 @@ export class GestureEngine extends EventTarget {
     if (typeof document === 'undefined') return;
     if (d.on && !d.el) {
       d.el = document.createElement('pre');
-      d.el.id = 'jarvis-debug';
+      d.el.id = 'mavis-debug';
       d.el.style.cssText =
         'position:fixed;left:12px;top:12px;z-index:99999;margin:0;padding:10px 12px;' +
         'font:11px/1.45 ui-monospace,Menlo,monospace;color:#e8d9a8;background:rgba(10,12,16,.82);' +
@@ -777,7 +777,7 @@ async function createLandmarker(preferred = 'GPU') {
     try {
       return { landmarker: await make('GPU'), delegate: 'GPU' };
     } catch (err) {
-      console.warn('[jarvis] GPU delegate failed, using CPU:', err);
+      console.warn('[mavis] GPU delegate failed, using CPU:', err);
     }
   }
   return { landmarker: await make('CPU'), delegate: 'CPU' };

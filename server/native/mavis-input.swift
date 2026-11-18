@@ -1,4 +1,4 @@
-// jarvis-input: posts mouse and keyboard events through Quartz (CoreGraphics).
+// mavis-input: posts mouse and keyboard events through Quartz (CoreGraphics).
 // Long-running; server/input.js spawns it and writes one command per line on stdin.
 // Coordinates are global display points (origin top-left of the main display).
 //

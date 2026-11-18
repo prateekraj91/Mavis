@@ -1,4 +1,4 @@
-// "Teach Jarvis a gesture": record ~20 samples of a hand shape, check them with the
+// "Teach Mavis a gesture": record ~20 samples of a hand shape, check them with the
 // KNN classifier (knn.js), map the gesture to an action, save to the helper's
 // gestures.json. The engine then fires it as gesture:<name> (only while awake).
 // Draws its own overlay (like files.js), so hud.js stays paint-only.
@@ -149,11 +149,11 @@ export function initCustomGestures({ engine, bus = window }) {
     const root = document.createElement('div');
     root.className = 'trainer';
     root.innerHTML = `<div class="tr-box">
-      <h2>Teach Jarvis a gesture</h2>
+      <h2>Teach Mavis a gesture</h2>
       <div class="tr-cols">
         <section>
           <label>Name<input data-t="name" maxlength="24" placeholder="peace" autocomplete="off" spellcheck="false"></label>
-          <label>When Jarvis sees it
+          <label>When Mavis sees it
             <select data-t="kind">${ACTIONS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>
             <input data-t="param" autocomplete="off" spellcheck="false">
           </label>
@@ -167,7 +167,7 @@ export function initCustomGestures({ engine, bus = window }) {
           <h3>Saved gestures</h3><ul class="tr-list" data-t="list"></ul>
         </section>
       </div>
-      <p class="tr-hint">While recording, hold the shape and move it a little: closer, further, slightly turned. Gestures fire only while Jarvis is awake, and are paused while this screen is open. Esc closes.</p>
+      <p class="tr-hint">While recording, hold the shape and move it a little: closer, further, slightly turned. Gestures fire only while Mavis is awake, and are paused while this screen is open. Esc closes.</p>
     </div>`;
     document.head.append(style);
     document.body.append(root);
@@ -297,7 +297,7 @@ export function initCustomGestures({ engine, bus = window }) {
       q('save').disabled = true;
       const r = await save(next);
       if (!r.ok) { status(r.error, 'err'); canSave(); return; }
-      status(`Saved. Jarvis fires gesture:${name} (${describeAction(action)}) while awake.`);
+      status(`Saved. Mavis fires gesture:${name} (${describeAction(action)}) while awake.`);
       draft = null; draftModel = null;
       renderList(); canSave();
     };

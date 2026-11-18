@@ -1,13 +1,13 @@
-// Real mouse (and, later, keyboard) control through the native jarvis-input helper.
+// Real mouse (and, later, keyboard) control through the native mavis-input helper.
 // The page sends display-normalised coordinates (0..1); this file turns them into
 // points on the main display and writes commands to the helper's stdin.
 //
-// JARVIS_INPUT=dry npm start   records commands instead of posting them (for tests;
+// MAVIS_INPUT=dry npm start   records commands instead of posting them (for tests;
 //                              GET /cursor/dry shows the log). The screen is 1440x900.
 import { spawn } from 'node:child_process';
 import { BIN, build, isStale } from './native/build.js';
 
-const DRY = process.env.JARVIS_INPUT === 'dry';
+const DRY = process.env.MAVIS_INPUT === 'dry';
 const DRY_SCREEN = { x: 0, y: 0, w: 1440, h: 900 };
 const RESTART_MS = 2000; // helper crashed -> respawn after this
 const STATUS_POLL_MS = 4000; // re-read screen size and Accessibility permission
@@ -39,7 +39,7 @@ export async function startInput() {
   if (DRY) { screen = { ...DRY_SCREEN }; trusted = true; ready = true; return; }
   if (process.platform !== 'darwin') { error = 'Cursor control works only on macOS'; return; }
   try {
-    if (isStale()) { console.log('Compiling native/jarvis-input.swift (first time can take a minute)…'); await build(); }
+    if (isStale()) { console.log('Compiling native/mavis-input.swift (first time can take a minute)…'); await build(); }
   } catch (err) {
     error = 'Could not compile the cursor helper. Install the Xcode command line tools (xcode-select --install), then restart.';
     console.warn(error, '\n', err.stderr || err.message);
@@ -133,7 +133,7 @@ export function cursor(cmd = {}) {
   return { ok: true, point: [px, py] };
 }
 
-/** Never leave the button held (page closed, Jarvis asleep). */
+/** Never leave the button held (page closed, Mavis asleep). */
 export function releaseButton() {
   if (!buttonDown || !screen) return;
   buttonDown = false;

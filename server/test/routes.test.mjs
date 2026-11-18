@@ -11,12 +11,12 @@ import WebSocket from 'ws';
 const PORT = 7790 + Math.floor(Math.random() * 100);
 const BASE = `http://127.0.0.1:${PORT}`;
 const ORIGIN = 'http://localhost:5173';
-const dataDir = mkdtempSync(join(tmpdir(), 'jarvis-test-'));
+const dataDir = mkdtempSync(join(tmpdir(), 'mavis-test-'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const samples = (n) => Array.from({ length: n }, (_, i) => Array.from({ length: 60 }, (_, j) => Number(Math.sin(i * 7 + j).toFixed(4))));
 
 const server = spawn(process.execPath, [fileURLToPath(new URL('../index.js', import.meta.url))], {
-  env: { ...process.env, JARVIS_PORT: String(PORT), JARVIS_DATA_DIR: dataDir, JARVIS_INPUT: 'dry' },
+  env: { ...process.env, MAVIS_PORT: String(PORT), MAVIS_DATA_DIR: dataDir, MAVIS_INPUT: 'dry' },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 let serverOut = '';

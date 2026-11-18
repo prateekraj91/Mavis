@@ -12,7 +12,7 @@
 //   {action:'files', do:'open'|'back'|'next_page'|'prev_page'}     {action:'back'}
 //   {action:'cursor', do:'on'|'off'|'calibrate'|'dwell_on'|'dwell_off'}
 //   {action:'key', combo:'cmd+shift+t', label?}    press keys in the front app (helper /key)
-//   {action:'trainer', do:'open'}                   "teach Jarvis a gesture" screen (trainer.js)
+//   {action:'trainer', do:'open'}                   "teach Mavis a gesture" screen (trainer.js)
 //
 // Taught gestures fire as gesture:<name>. The active profile may map them like any
 // gesture; otherwise the action saved with the gesture runs (gestures:updated).
@@ -27,7 +27,7 @@
 // Profiles (format in profiles.js): every JSON file in web/profiles/ is loaded.
 // Which one maps gestures to commands:
 //   1. the profile matching the front app or browser tab (helper pushes helper:front)
-//   2. otherwise, or while Jarvis's own tab is in front, the open panel (Spotify / Files)
+//   2. otherwise, or while Mavis's own tab is in front, the open panel (Spotify / Files)
 // The HUD is told with profile:change {name, source:'app'|'panel'}.
 import { profileForFront } from './profiles.js';
 

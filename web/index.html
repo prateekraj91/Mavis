@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Jarvis</title>
+  <title>Mavis</title>
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./src/hud.css" />
   <link rel="stylesheet" href="./src/files.css" />
@@ -23,7 +23,7 @@
       <g class="ring" style="--i:0"><circle cx="300" cy="300" r="132" class="inner" /></g>
     </svg>
     <div class="core">
-      <div class="core-name">Jarvis</div>
+      <div class="core-name">Mavis</div>
       <div class="core-line" data-el="line">Ready</div>
     </div>
 
@@ -109,13 +109,13 @@
 
     <!-- Asleep badge -->
     <div class="badge">
-      <span class="badge-dot"></span>Asleep. Say “Jarvis” or hold an open palm.
+      <span class="badge-dot"></span>Asleep. Say “Mavis” or hold an open palm.
       <i><u data-el="wake-bar"></u></i>
     </div>
 
     <!-- Start gate (browsers need a click before camera and microphone) -->
     <div class="gate">
-      <div class="gate-name">Jarvis</div>
+      <div class="gate-name">Mavis</div>
       <p data-el="gate-note">Uses your camera and microphone. Nothing is recorded.</p>
       <button data-el="start">Start</button>
     </div>
@@ -137,7 +137,7 @@
     initFiles();
     if (params.get('accent')) hud.setAccent(params.get('accent'));
 
-    const engine = (window.jarvis = new GestureEngine());
+    const engine = (window.mavis = new GestureEngine());
     const demo = params.has('demo');
     // The dispatcher: gestures, voice and HUD clicks -> helper. Off in demo mode.
     const socket = demo ? null : connectHelper();

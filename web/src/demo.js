@@ -61,7 +61,7 @@ export function runDemo(engine) {
     else if (k === 'b') { if (here?.parent) show(folder('Downloads', null, 23)); else { here = null; say('app:close'); } }
     else if (k === 'p') say('files:activate');
     else if (k === 'PageDown' || k === 'PageUp') say('files:page', { step: k === 'PageDown' ? 1 : -1 });
-    else if (k === 'v') say('voice:heard', { text: 'Jarvis, open Spotify', final: true });
+    else if (k === 'v') say('voice:heard', { text: 'Mavis, open Spotify', final: true });
     else return;
     engine.noteActivity();
     e.preventDefault();

@@ -1,5 +1,5 @@
 // Key combos like "cmd+shift+t" -> macOS virtual key code + modifier flags for
-// jarvis-input's `key` command. US (ANSI) layout codes.
+// mavis-input's `key` command. US (ANSI) layout codes.
 
 // CGEventFlags
 export const MODS = {

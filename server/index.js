@@ -1,4 +1,4 @@
-// JARVIS helper: the only part that touches the OS. Listens on localhost:7777.
+// MAVIS helper: the only part that touches the OS. Listens on localhost:7777.
 //   POST /open     {target}                 open an app or a site
 //   POST /spotify  {action, query?, level?} control the Spotify desktop app
 //   GET  /state                             system stats + Spotify state for the HUD
@@ -40,9 +40,9 @@ const front = await import('./front.js');
 const { parseCombo } = await import('./keys.js');
 const taught = await import('./gestures.js');
 
-const PORT = Number(process.env.JARVIS_PORT) || 7777; // tests use another port
+const PORT = Number(process.env.MAVIS_PORT) || 7777; // tests use another port
 // calibration.json (and later gestures.json) live here. Tests point it at a temp folder.
-const DATA_DIR = process.env.JARVIS_DATA_DIR || here('.');
+const DATA_DIR = process.env.MAVIS_DATA_DIR || here('.');
 const dataFile = (name) => join(DATA_DIR, name);
 const HOST = '127.0.0.1'; // never reachable from the network
 const ALLOWED_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173']);
@@ -60,7 +60,7 @@ const targets = JSON.parse(readFileSync(here('targets.json'), 'utf8'));
 
 const app = express();
 
-// Only the Jarvis page may call this server. JSON-only POSTs force a CORS
+// Only the Mavis page may call this server. JSON-only POSTs force a CORS
 // preflight, so another website cannot make your Mac open things.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -212,16 +212,16 @@ app.post('/gestures', async (req, res) => {
 
 // Dry-run only: pretend an app came to the front (tests have no real app switching).
 app.post('/front/simulate', async (req, res) => {
-  if (!input.isDry()) return res.status(404).json({ ok: false, error: 'Only in dry-run mode (JARVIS_INPUT=dry)' });
+  if (!input.isDry()) return res.status(404).json({ ok: false, error: 'Only in dry-run mode (MAVIS_INPUT=dry)' });
   const { bundleId = '', app: name = '', host = '', pid = 1 } = req.body ?? {};
   await front.setFront({ bundleId: String(bundleId), app: String(name), host: String(host), pid: Number(pid) || 1 });
   res.json({ ok: true, ...front.current() });
 });
 
-// Dry-run only (JARVIS_INPUT=dry): the commands that would have been posted.
+// Dry-run only (MAVIS_INPUT=dry): the commands that would have been posted.
 app.get('/cursor/dry', (_req, res) => {
   const log = input.dryCommands();
-  if (!log) return res.status(404).json({ ok: false, error: 'Only in dry-run mode (JARVIS_INPUT=dry)' });
+  if (!log) return res.status(404).json({ ok: false, error: 'Only in dry-run mode (MAVIS_INPUT=dry)' });
   res.json({ ok: true, commands: log });
 });
 
@@ -244,7 +244,7 @@ function cleanError(err) {
 }
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(`Jarvis helper on http://localhost:${PORT}`);
+  console.log(`Mavis helper on http://localhost:${PORT}`);
   if (!spotify.hasKeys()) console.log('No Spotify keys in server/.env: "play <song>" will only open the search in Spotify.');
 });
 
@@ -252,7 +252,7 @@ const server = app.listen(PORT, HOST, () => {
 const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_BYTES });
 server.on('upgrade', (req, socket, head) => {
   const { pathname } = new URL(req.url, 'http://localhost');
-  // Same rule as HTTP: only the Jarvis page. Browsers always send Origin on WebSockets.
+  // Same rule as HTTP: only the Mavis page. Browsers always send Origin on WebSockets.
   if (pathname !== '/ws' || !ALLOWED_ORIGINS.has(req.headers.origin)) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
     return socket.destroy();
@@ -283,5 +283,5 @@ front.startFront();
 input.startInput().then(() => {
   const s = input.status();
   if (s.error) console.log(s.error);
-  else if (s.dry) console.log('Cursor helper: dry run (JARVIS_INPUT=dry), nothing is posted to macOS.');
+  else if (s.dry) console.log('Cursor helper: dry run (MAVIS_INPUT=dry), nothing is posted to macOS.');
 });

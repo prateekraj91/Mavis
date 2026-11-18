@@ -1,6 +1,6 @@
-# Jarvis gesture shell
+# Mavis gesture shell
 
-Control a Mac with hand gestures and voice, but only after saying "Jarvis". A HUD boots in Chrome, Spotify opens as a centre panel, and folders open as a grid of floating cards. While asleep, gestures do nothing.
+Control a Mac with hand gestures and voice, but only after saying "Mavis". A HUD boots in Chrome, Spotify opens as a centre panel, and folders open as a grid of floating cards. While asleep, gestures do nothing.
 
 Status: all the code for the wake gate, HUD, Spotify control, voice and folder browser is written. It has been tested with synthetic hands, a fake speech recogniser and a headless browser, never on a Mac with a real camera. The checklist below is that first real test.
 
@@ -14,7 +14,7 @@ Status: all the code for the wake gate, HUD, Spotify control, voice and folder b
 ## Setup
 
 ```
-cd jarvis/server
+cd Mavis/server
 npm install
 
 cd ../web
@@ -35,8 +35,8 @@ Without keys everything else works; "play <song>" opens the search in Spotify in
 Two terminals:
 
 ```
-cd jarvis/server && npm start      # helper on localhost:7777
-cd jarvis/web && npm run dev       # page on localhost:5173
+cd Mavis/server && npm start      # helper on localhost:7777
+cd Mavis/web && npm run dev       # page on localhost:5173
 ```
 
 Open http://localhost:5173 in Chrome and click Start.
@@ -53,8 +53,8 @@ Demo keys: W wake, S sleep, O Spotify panel, Space play/pause, arrows track and 
 
 ## Using it
 
-Wake: say "Jarvis", or hold an open palm for 1 second.
-Sleep: say "Jarvis, sleep", hold a fist for 2 seconds, or leave it idle for 30 seconds.
+Wake: say "Mavis", or hold an open palm for 1 second.
+Sleep: say "Mavis, sleep", hold a fist for 2 seconds, or leave it idle for 30 seconds.
 
 | Gesture | Spotify | Folder browser |
 |---|---|---|
@@ -66,7 +66,7 @@ Sleep: say "Jarvis, sleep", hold a fist for 2 seconds, or leave it idle for 30 s
 | Short fist | | back |
 | Fist, 2 s | sleep | sleep |
 
-Voice, once awake (the word "Jarvis" is optional then):
+Voice, once awake (the word "Mavis" is optional then):
 
 - "open Spotify", "open VS Code", "open YouTube", "open Downloads"
 - "play <song>", "pause", "resume", "next", "previous"
@@ -79,13 +79,13 @@ In the folder browser, "open <name>" opens the item with that name in the curren
 
 | To change | Edit |
 |---|---|
-| Gesture thresholds | `T` at the top of `web/src/gestures.js`, or live in the console: `jarvis.T.SWIPE_MIN_DX = 0.2` |
+| Gesture thresholds | `T` at the top of `web/src/gestures.js`, or live in the console: `mavis.T.SWIPE_MIN_DX = 0.2` |
 | Wake word spellings, language | `V` at the top of `web/src/voice.js` |
 | What a gesture does in an app | `web/profiles/<app>.json` (one file per app) |
 | Names that "open ..." understands | `server/targets.json` |
 | Today list | `server/today.json` (re-read every wake) |
 | Cursor feel (click, drag, scroll, dwell) | `C` at the top of `web/src/cursor.js` |
-| Custom gestures | Shift+T or "teach Jarvis a gesture"; saved in `server/gestures.json` |
+| Custom gestures | Shift+T or "teach Mavis a gesture"; saved in `server/gestures.json` |
 
 New since the first checklist: cursor control, per-app profiles, a perf panel and custom gestures. Their camera tests are in `TESTING.md`, and what was built and decided is in `PROGRESS.md`.
 
@@ -108,7 +108,7 @@ macOS asks for most of these the first time they are needed. "Terminal" below me
 ### 2. Wake gate
 
 - [ ] Asleep: wave, swipe, pinch, make a fist. Nothing happens.
-- [ ] Say "Jarvis": HUD boots in under 2 seconds.
+- [ ] Say "Mavis": HUD boots in under 2 seconds.
   - If it never wakes: open `/?debug`, wake with a palm, and read the voice pill to see how Chrome spells what you say. Add that spelling to `WAKE_WORDS` in `voice.js`. If recognition is poor overall, change `LANG` to `en-US`.
 - [ ] Hold an open palm for 1 second while asleep: it wakes, and the music does not pause.
 - [ ] Hold a fist for 2 seconds: it sleeps.
@@ -127,7 +127,7 @@ Good front lighting matters more than any threshold.
 
 ### 4. Spotify
 
-- [ ] "Jarvis, open Spotify": the app opens and the centre panel appears with the current track.
+- [ ] "Mavis, open Spotify": the app opens and the centre panel appears with the current track.
 - [ ] "Pause", "resume", "next", "previous", "set volume to 40" each work.
 - [ ] The panel's progress bar, title and album art match Spotify within about 2 seconds.
 
@@ -149,22 +149,22 @@ Spotify has no scriptable "like", so the helper brings Spotify to the front and 
 
 - [ ] In Spotify itself, press Option+Shift+B by hand with a song playing. The heart should toggle. If it doesn't, your Spotify version uses a different shortcut: check Spotify's keyboard shortcut list (Cmd+/ in the app) and change the keystroke in `server/spotify.js` (`case 'like'`).
 - [ ] Thumbs up, or say "like this song": Spotify comes to the front and the heart toggles.
-- [ ] Note that it toggles: a second thumbs up on the same song removes the like. The heart in the HUD only tracks likes made through Jarvis in this session.
+- [ ] Note that it toggles: a second thumbs up on the same song removes the like. The heart in the HUD only tracks likes made through Mavis in this session.
 - [ ] After the like, Spotify is in front of Chrome. Check gestures still work (this is the next test).
 
 ### 7. Background tracking
 
-Gestures have to keep working while another app is in front. The engine ticks from a worker timer for this reason, but Chrome may still pause a hidden page. Wake Jarvis, start a song, then try a swipe in each situation:
+Gestures have to keep working while another app is in front. The engine ticks from a worker timer for this reason, but Chrome may still pause a hidden page. Wake Mavis, start a song, then try a swipe in each situation:
 
 - [ ] A. Chrome visible, another app focused (click on Spotify, leave Chrome showing beside it).
 - [ ] B. Chrome window fully covered by another window.
-- [ ] C. Jarvis in a background tab of Chrome, another tab in front.
+- [ ] C. Mavis in a background tab of Chrome, another tab in front.
 - [ ] D. Chrome minimised.
 - [ ] In each case also say "next" to check voice.
 
 A should work. B, C and D are unknown until tested. If one fails:
 
-- Keep Jarvis in its own Chrome window and leave at least part of it visible.
+- Keep Mavis in its own Chrome window and leave at least part of it visible.
 - If B fails, try starting Chrome with `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding`. This may help; it is untested here.
 - D is the least likely to work, and there may be no fix short of not minimising.
 
@@ -181,7 +181,7 @@ A should work. B, C and D are unknown until tested. If one fails:
 
 ## Limits and safety
 
-- The helper listens on 127.0.0.1 only and accepts requests only from the Jarvis page, so other websites cannot use it.
+- The helper listens on 127.0.0.1 only and accepts requests only from the Mavis page, so other websites cannot use it.
 - The folder browser cannot leave your home folder, hides dotfiles, lists at most 300 items per folder, and refuses to open apps, scripts and installers.
 - No video or audio is stored by this code.
 
@@ -192,7 +192,7 @@ A should work. B, C and D are unknown until tested. If one fails:
 ## Layout
 
 ```
-jarvis/
+Mavis/
   server/
     index.js        routes: /open /spotify /state /today /fs
     spotify.js      AppleScript control, Web API search

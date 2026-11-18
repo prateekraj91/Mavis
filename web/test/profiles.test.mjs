@@ -47,7 +47,7 @@ const tests = {
     assert.equal(profileForFront({ bundleId: CHROME, host: 'notyoutube.com' }, profiles)?.app, 'Chrome');
     assert.equal(profileForFront({ bundleId: CHROME, host: 'youtube.com.evil.io' }, profiles)?.app, 'Chrome');
   },
-  'Jarvis own tab in front: no app profile (the panel profile applies)'() {
+  'Mavis own tab in front: no app profile (the panel profile applies)'() {
     assert.equal(profileForFront({ bundleId: CHROME, host: 'localhost:5173' }, profiles), null);
     assert.equal(profileForFront({ bundleId: CHROME, host: '127.0.0.1:5173' }, profiles), null);
   },

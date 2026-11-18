@@ -15,7 +15,7 @@ Done:
 - Tests: `web/test/filters.test.mjs`, 12 tests covering the One Euro filter (jitter cut, fast-move lag compared with a fixed low-pass, step settling, same-timestamp safety, reset), the perf meter, and that the engine's `hand` pointer is steadier than the raw fingertip. `npm test` now runs every `test/*.test.mjs`.
 
 Decisions:
-- Pointer filter defaults: min cutoff 0.6 Hz, beta 8, derivative cutoff 1 Hz. In a parameter sweep this gave the best trade-off: 3.3x less jitter on a still hand, with about 0.015 (1.5% of frame width) lag at the end of a fast reach. Tunable live via `jarvis.T.POINTER_*`.
+- Pointer filter defaults: min cutoff 0.6 Hz, beta 8, derivative cutoff 1 Hz. In a parameter sweep this gave the best trade-off: 3.3x less jitter on a still hand, with about 0.015 (1.5% of frame width) lag at the end of a fast reach. Tunable live via `mavis.T.POINTER_*`.
 - Latency is measured from the frame's `captureTime` (from `requestVideoFrameCallback` metadata) to just after all events for that frame are dispatched. It does not include the HUD's paint or the helper round trip.
 
 Measured (headless Chrome with a fake 20 fps camera and software GL, so only a sanity check; real numbers come from your Mac):
@@ -29,24 +29,24 @@ Measured (headless Chrome with a fake 20 fps camera and software GL, so only a s
 Known issues:
 - Not tested on a real camera or GPU. Real hands may want different One Euro settings.
 - The background timer path was exercised (it drives frames before the first video-frame callback), but not in a real hidden or occluded window.
-- On this Mac, a different project's Vite server also listens on 127.0.0.1:5173, while Jarvis's listens on [::1]:5173. Chrome normally picks ::1 for `localhost`, but if the wrong app loads, stop the other server.
+- On this Mac, a different project's Vite server also listens on 127.0.0.1:5173, while Mavis's listens on [::1]:5173. Chrome normally picks ::1 for `localhost`, but if the wrong app loads, stop the other server.
 
 ## Task 2: Real cursor control
 
 Done:
-- `server/native/jarvis-input.swift`: a small Swift program posting mouse events through Quartz (CoreGraphics `CGEvent`). The server spawns it once and writes one command per line: move, down, up, click (a second close click becomes a double click), scroll, status. Status reports the main display's bounds and whether Accessibility is granted.
+- `server/native/mavis-input.swift`: a small Swift program posting mouse events through Quartz (CoreGraphics `CGEvent`). The server spawns it once and writes one command per line: move, down, up, click (a second close click becomes a double click), scroll, status. Status reports the main display's bounds and whether Accessibility is granted.
   - Built by `npm install` (postinstall) or, if missing or stale, at helper start. The binary in `server/native/bin/` is git-ignored.
 - `server/input.js`: spawns and respawns the helper, maps 0..1 display coordinates to points, caps scrolls, tracks the button. It also releases the button when the last page disconnects or the server exits (the Swift side releases on stdin EOF too).
-  - `JARVIS_INPUT=dry` records commands instead of posting them, for tests.
+  - `MAVIS_INPUT=dry` records commands instead of posting them, for tests.
 - Server: WebSocket `/ws` (the `ws` package) for camera-rate moves in order, with the same origin check as HTTP. Routes: `GET /cursor/status`, `POST /cursor`, `GET|POST /cursor/calibration` (saved to `server/calibration.json`, git-ignored), `GET /cursor/dry`.
-  - `JARVIS_PORT` and `JARVIS_DATA_DIR` env vars exist so tests do not collide with a running helper or overwrite your files.
+  - `MAVIS_PORT` and `MAVIS_DATA_DIR` env vars exist so tests do not collide with a running helper or overwrite your files.
 - `web/src/cursor.js`: pure `CursorLogic` state machine:
   - The index fingertip, through the calibration rectangle, moves the cursor.
   - A quick pinch clicks where the cursor was 100 ms before the fingers closed (closing a pinch drags the fingertip).
   - Pinch held for 350 ms, or moved 3%, presses the button; moving drags; opening drops.
   - Two fingers (index + middle up, ring + pinky curled), held for 120 ms, scroll with the cursor frozen.
   - Optional dwell click: 900 ms within 1.2% of the screen, re-armed after moving 3% away.
-  - Plus wiring: WebSocket with reconnect, Shift+C / Shift+K / Shift+W, and a Jarvis idle-timer reset while the cursor moves.
+  - Plus wiring: WebSocket with reconnect, Shift+C / Shift+K / Shift+W, and a Mavis idle-timer reset while the cursor moves.
 - `web/src/calibrate.js`: a four-corner calibration screen with a live fingertip dot. It records each corner after 0.9 s still, turns the corners into a rectangle (shrunk 5% so screen edges are easy to reach), and saves it to the helper.
 - Voice: "cursor mode" / "mouse on" / "start the cursor", "cursor off" / "stop mouse mode", "calibrate", "dwell click on/off". HUD: a CURSOR chip, and the dwell charge on the ring.
 - Tests:
@@ -57,7 +57,7 @@ Done:
 Decisions:
 - Quartz through a compiled Swift helper rather than nut.js. It needs only the Xcode command line tools already on this Mac, has no native npm build, and has the lowest latency (stdin, no process per event). nut.js's free npm builds were withdrawn in 2024, so it would not have installed cleanly.
 - Cursor control is a mode, off by default: "cursor mode" or Shift+C. With it always on while awake, every pinch would click the real Mac and also fire the Spotify volume gesture. While it is on, profile gestures are paused, except thumbs up, which turns it off.
-- Sleeping (fist, timeout, "sleep") turns cursor mode off, so a sleeping Jarvis can never click.
+- Sleeping (fist, timeout, "sleep") turns cursor mode off, so a sleeping Mavis can never click.
 - The cursor logic lives in the page (testable under `npm test`); the server only maps and posts. Everything that touches the OS stays in `server/`.
 - Calibration is stored by the helper (`server/calibration.json`) rather than in the browser, so it survives a cleared browser or a different port.
 - Without calibration, the middle 70% of the camera frame maps to the whole display.
@@ -86,19 +86,19 @@ Done:
 - `web/src/api.js` picks the profile:
   1. a matching browser tab host beats the browser app;
   2. else the front app's bundle id;
-  3. else (Jarvis's own tab, or an app with no profile) the open panel's profile, Spotify by default, as before.
+  3. else (Mavis's own tab, or an app with no profile) the open panel's profile, Spotify by default, as before.
   - New command `{action:'key', combo, label}`.
 - HUD: a profile chip at the top (gold = from the front app, grey = panel), and each key gesture's label on the centre line.
 - `web/src/socket.js` now owns the one WebSocket; `cursor.js` and `api.js` both use it.
 - Tests: `web/test/profiles.test.mjs` (9):
   - every profile file is valid, with known gestures and combos the server's parser accepts;
   - all required apps are present;
-  - bundle and host matching, look-alike hosts rejected, Jarvis tab and unknown apps fall back.
+  - bundle and host matching, look-alike hosts rejected, Mavis tab and unknown apps fall back.
   - Server: 4 more route tests for `/key` (codes, flags, rejects, origin) and front-app push.
 
 Decisions:
 - Gestures in an app without a profile keep controlling the panel (Spotify), as they did before this task, rather than doing nothing.
-- Only Spotify and Files are "panel" profiles. Saying "open Chrome" therefore does not make Chrome the fallback, which would send Ctrl+Tab into the Jarvis tab.
+- Only Spotify and Files are "panel" profiles. Saying "open Chrome" therefore does not make Chrome the fallback, which would send Ctrl+Tab into the Mavis tab.
 - Both Zoom and Meet, and both Keynote and PowerPoint, got profiles, since each is a small file.
 - Some gestures fall through to Spotify where the app has no natural use for them (Chrome and Finder palm = play/pause), so music control stays one gesture away.
 - Gesture choices per app (my picks, easy to change in the JSON):
@@ -110,14 +110,14 @@ Decisions:
   - Slides: arrows, play, Escape.
 
 Verified here:
-- In headless Chrome against a dry-run helper, simulated app switches change the chip correctly (Chrome, YouTube, Jarvis tab → Spotify, VS Code, Notes → Spotify, Finder). Gestures send the right key codes, and cursor mode pauses them.
+- In headless Chrome against a dry-run helper, simulated app switches change the chip correctly (Chrome, YouTube, Mavis tab → Spotify, VS Code, Notes → Spotify, Finder). Gestures send the right key codes, and cursor mode pauses them.
 - With the real helper: switching Finder → Chrome on this Mac was reported correctly.
 
 Known issues and untested:
 - No real key event was posted (no Accessibility permission in this session).
 - The AppleScript tab read was not run, to avoid an Automation prompt on your screen. YouTube and Meet detection is untested on the real browser.
 - Tab polling is once a second, so switching tabs takes up to 1 s to change profile.
-- Keys go to whichever app is in front. If Jarvis's tab is in front, no keys are sent (the panel profile applies).
+- Keys go to whichever app is in front. If Mavis's tab is in front, no keys are sent (the panel profile applies).
 - Zoom's shortcuts work only in its meeting window. YouTube's need the player focused.
 
 ## Task 4: Custom gesture trainer
@@ -131,7 +131,7 @@ Done:
   - A taught pose must be recognised by at least 60% of neighbours for 350 ms, then fires `gesture:<name>` (plus `gesture` with `custom: true`).
   - Fires once per hold, only awake, outside the wake grace, with the normal cooldown. Not during a pinch.
   - `tapLandmarks()` feeds the trainer. The debug panel has a `custom` line.
-- `web/src/trainer.js`: the "Teach Jarvis a gesture" screen (Shift+T, "teach Jarvis a gesture" / "new gesture", or `/?train`).
+- `web/src/trainer.js`: the "Teach Mavis a gesture" screen (Shift+T, "teach Mavis a gesture" / "new gesture", or `/?train`).
   - Name validation; the action is a key combo, a Spotify command, open app/site, cursor on/off, sleep, or nothing.
   - Recording: 3 s countdown, a 0.6 s settle, then 20 samples 100 ms apart.
   - The report shows the leave-one-out score, mix-ups with other taught gestures, and a warning when the shape reads as a built-in pose.
@@ -167,3 +167,22 @@ Known issues and untested:
 - Never tried on real hands. Real landmark noise may need `KNN.REJECT_FACTOR` or `MIN_THRESHOLD` tuned. Both are named constants in `web/src/knn.js`.
 - Left and right hands differ in features. Teach with the hand you will use.
 - The `custom_` hack in profile checking was removed; profiles may name taught gestures, but the profile test only checks the shipped files against built-in names.
+
+## Task 5: Rename to Mavis
+
+Done:
+- Renamed the app from Jarvis to Mavis in all code, HUD text, titles, comments, docs, package names, tests and log messages.
+- Wake words are now `mavis` plus likely mishearings (mavus, mavice, mavies, maves, "mave is", "may vis", mavic, mavees). "teach Mavis a gesture" opens the trainer. The old name no longer wakes anything.
+- `window.mavis` replaces the old browser global (console tips updated: `mavis.T...`).
+- Swift helper is now `server/native/mavis-input.swift`, built to `server/native/bin/mavis-input`. The stale old binary was deleted (it was ignored build output).
+- Env vars are now `MAVIS_PORT`, `MAVIS_DATA_DIR`, `MAVIS_INPUT`.
+- package names: `mavis-web`, `mavis-helper`.
+
+Decisions and unusual things:
+- No storage migration was needed: nothing uses localStorage, and the saved files (`server/calibration.json`, `gestures.json`, `today.json`) never had the old name in their file names, so calibration and taught gestures carry over as is.
+- `normalise()` strips apostrophes before matching, so the requested "mavis's" spelling could never match. It is listed as `maviss`, which is what "Mavis's" becomes; a test covers it. The duplicate "mavus" in the request was listed once.
+- If `server/.env` sets any of the old-named env vars (port, data dir, dry run), rename them by hand; I did not open `.env`. Spotify keys are unaffected.
+- macOS may ask for Accessibility again because the helper binary has a new name. If the cursor does not move, check System Settings → Privacy & Security → Accessibility.
+- `server/package-lock.json` had an uncommitted `hasInstallScript` line from npm; it is correct and was committed with the rename.
+
+Tests: web `npm test` and server `npm test` all pass.

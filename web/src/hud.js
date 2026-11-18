@@ -1,4 +1,4 @@
-// JARVIS HUD. Presentation only: it listens to events on `window` and paints.
+// MAVIS HUD. Presentation only: it listens to events on `window` and paints.
 // It never calls the helper, the engine or Spotify.
 //
 // Listens for (payload in e.detail)

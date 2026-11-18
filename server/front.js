@@ -1,4 +1,4 @@
-// Which app is in front, for per-app gesture profiles. jarvis-input prints a
+// Which app is in front, for per-app gesture profiles. mavis-input prints a
 // `front` line whenever it changes. For browsers we also read the active tab's
 // host (AppleScript), because YouTube and Meet are tabs, not apps.
 // Only the host leaves this file, never the full URL.

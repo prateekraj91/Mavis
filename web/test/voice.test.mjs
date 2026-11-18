@@ -26,7 +26,7 @@ const cases = [
   ['stop mouse mode', { action: 'cursor', do: 'off' }], ['calibrate', { action: 'cursor', do: 'calibrate' }],
   ['calibrate the cursor', { action: 'cursor', do: 'calibrate' }], ['dwell click on', { action: 'cursor', do: 'dwell_on' }],
   ['turn off dwell', { action: 'cursor', do: 'dwell_off' }],
-  ['teach Jarvis a gesture', { action: 'trainer', do: 'open' }], ['train a new gesture', { action: 'trainer', do: 'open' }],
+  ['teach Mavis a gesture', { action: 'trainer', do: 'open' }], ['train a new gesture', { action: 'trainer', do: 'open' }],
   ['new gesture', { action: 'trainer', do: 'open' }], ['open the gesture trainer', { action: 'trainer', do: 'open' }], ['start chrome', { action: 'open', target: 'chrome' }],
   ['I should open a bank account and next week we pause', null],
   ['what is the next step', null], ['', null], ['i could not sleep', null],
@@ -37,8 +37,8 @@ for (const [text, want] of cases) {
   catch { failed++; console.log(`FAIL  "${text}" -> ${JSON.stringify(parseCommand(text))}, want ${JSON.stringify(want)}`); }
 }
 const wake = [
-  ['Jarvis, open Spotify', true, 'open spotify'], ['hey Jarvis', true, ''], ['Jarvis sleep', true, 'sleep'],
-  ['open spotify', false, 'open spotify'], ['jar vis next', true, 'next'], ['the jarvis thing Jarvis pause', true, 'pause'],
+  ['Mavis, open Spotify', true, 'open spotify'], ['hey Mavis', true, ''], ['Mavis sleep', true, 'sleep'],
+  ['open spotify', false, 'open spotify'], ['may vis next', true, 'next'], ['Mavis\'s volume up', true, 'volume up'], ['mave is pause', true, 'pause'], ['the mavis thing Mavis pause', true, 'pause'],
   ['service is down', false, 'service is down'],
 ];
 for (const [text, has, rest] of wake) {

@@ -7,7 +7,7 @@
 //   two fingers up      (index + middle, others curled) move up/down/sideways to scroll
 //   dwell (optional)    hold the cursor still DWELL_MS to click
 //
-// Only while cursor mode is on AND Jarvis is awake. Sleeping turns cursor mode off.
+// Only while cursor mode is on AND Mavis is awake. Sleeping turns cursor mode off.
 // While it is on, api.js does not run profile gestures (except thumbs up, which
 // leaves cursor mode), so a pinch-click cannot also change the volume.
 //
@@ -259,7 +259,7 @@ export function startCursor({ engine, socket, bus = window, calibrate = () => {}
 
   const push = (cmds) => {
     if (!cmds.length) return;
-    engine.noteActivity(); // moving the cursor counts as activity, so Jarvis does not idle to sleep
+    engine.noteActivity(); // moving the cursor counts as activity, so Mavis does not idle to sleep
     for (const c of cmds) if (!socket.send({ t: 'cursor', ...c })) break;
   };
 

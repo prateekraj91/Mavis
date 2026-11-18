@@ -11,7 +11,8 @@
 export const V = {
   LANG: 'en-IN', // try 'en-US' if recognition is poor
   // How the recogniser tends to spell it. Add what the voice pill shows when it mishears you.
-  WAKE_WORDS: ['jarvis', 'jarvas', 'jarvus', 'javis', 'jervis', 'jarves', 'jarviz', 'jar vis', 'charvis'],
+  // normalise() drops apostrophes, so "Mavis's" arrives as 'maviss'.
+  WAKE_WORDS: ['mavis', 'mavus', 'mavice', 'mavies', 'maves', 'mave is', 'may vis', 'maviss', 'mavic', 'mavees'],
   MAX_ALTERNATIVES: 3,
   RESTART_MS: 250, // Chrome stops after silence; restart this soon after
   RESTART_ERROR_MS: 2000, // after a network error
@@ -47,7 +48,7 @@ const RULES = [
   [/^(?:cursor|mouse)(?: mode)?(?: on)?$|^(?:start|enable|turn on|use) (?:the )?(?:cursor|mouse)(?: mode)?$/, () => ({ action: 'cursor', do: 'on' })],
   [/^(?:cursor|mouse)(?: mode)? off$|^(?:stop|disable|turn off|exit|leave|end) (?:the )?(?:cursor|mouse)(?: mode)?$/, () => ({ action: 'cursor', do: 'off' })],
   [/^calibrate(?: (?:the )?(?:cursor|mouse|camera|hand))?$/, () => ({ action: 'cursor', do: 'calibrate' })],
-  [/^(?:teach|train)(?: jarvis| you| me)? (?:a |an )?(?:new )?gesture$|^(?:new|custom) gesture$|^(?:open )?(?:the )?gesture trainer$/, () => ({ action: 'trainer', do: 'open' })],
+  [/^(?:teach|train)(?: mavis| you| me)? (?:a |an )?(?:new )?gesture$|^(?:new|custom) gesture$|^(?:open )?(?:the )?gesture trainer$/, () => ({ action: 'trainer', do: 'open' })],
   [/^dwell(?: click(?:ing)?)? (on|off)$|^(?:turn )?(on|off) dwell(?: click(?:ing)?)?$/, (m) => ({ action: 'cursor', do: `dwell_${m[1] || m[2]}` })],
   [/^(?:go to sleep|sleep|good ?night|goodbye|thats all|that will be all)$/, () => ({ action: 'sleep' })],
   [/^(?:back|go back|go up|up|up a level)$/, () => ({ action: 'back' })],
